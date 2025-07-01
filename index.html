@@ -6,10 +6,10 @@
   <title>柑橘園智能灌溉計算系統 | 苗栗區農業改良場</title>
   
   <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   
   <!-- Font Awesome -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
   
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -117,31 +117,53 @@
 
                       <!-- 氣象參數 -->
                       <div class="parameter-section">
-                          <h5 class="section-title">
-                              <i class="fas fa-cloud-sun text-warning"></i>
-                              氣象參數
-                          </h5>
-                          
-                          <div class="mb-3">
-                              <label for="temperature" class="form-label">氣溫 (°C)</label>
-                              <input type="number" class="form-control" id="temperature" min="-10" max="50" step="0.1" value="25" required>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="humidity" class="form-label">相對濕度 (%)</label>
-                              <input type="number" class="form-control" id="humidity" min="0" max="100" step="1" value="70" required>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="windSpeed" class="form-label">風速 (m/s)</label>
-                              <input type="number" class="form-control" id="windSpeed" min="0" max="20" step="0.1" value="2.0" required>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="rainfall" class="form-label">降雨量 (mm)</label>
-                              <input type="number" class="form-control" id="rainfall" min="0" max="500" step="0.1" value="0" required>
-                          </div>
-                      </div>
+				<h5 class="section-title">
+					<i class="fas fa-cloud-sun text-warning"></i>
+					氣象參數
+				</h5>
+
+				<!-- 自動定位按鈕和資料來源顯示 -->
+				<div class="mb-3">
+        				<button type="button" class="btn btn-primary" id="autoLocateBtn">
+            					<i class="fas fa-location-arrow me-2"></i>
+            					自動獲取當前位置氣象資料
+        				</button>
+        				<small id="dataSource" class="form-text text-muted d-block mt-2"></small>
+    				</div>
+
+    				<!-- 天氣描述 -->
+    				<div class="mb-3">
+        				<p id="weatherDescription" class="alert alert-info" style="display: none;"></p>
+    				</div>
+
+    				<!-- 氣溫輸入框 -->
+    				<div class="mb-3">
+        				<label for="temperature" class="form-label">氣溫 (°C)</label>
+        				<input type="text" class="form-control" id="temperature" readonly>
+        				<small class="form-text text-muted">自動獲取的即時氣溫數據</small>
+    				</div>
+    
+    				<!-- 相對濕度輸入框 -->
+    				<div class="mb-3">
+        				<label for="humidity" class="form-label">舒適度指數</label>
+        				<input type="text" class="form-control" id="humidity" readonly>
+        				<small class="form-text text-muted">包含舒適度指數和描述</small>
+    				</div>
+    
+    				<!-- 風速輸入框 -->
+    				<div class="mb-3">
+        				<label for="windSpeed" class="form-label">風速</label>
+        				<input type="text" class="form-control" id="windSpeed" readonly>
+        				<small class="form-text text-muted">包含風速(m/s)和蒲福風級</small>
+    				</div>
+    
+    				<!-- 降雨量輸入框 -->
+    				<div class="mb-3">
+        				<label for="rainfall" class="form-label">降雨機率 (%)</label>
+        				<input type="text" class="form-control" id="rainfall" readonly>
+        				<small class="form-text text-muted">未來降雨機率預測</small>
+    				</div>
+			</div>
 
                       <!-- 土壤參數 -->
                       <div class="parameter-section">
@@ -362,10 +384,11 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
   <!-- 系統 JavaScript 檔案 (按載入順序) -->
-  <script src="js/utils.js"></script>
   <script src="js/parameters.js"></script>
+  <script src="js/utils.js"></script>
   <script src="js/calculator.js"></script>
   <script src="js/ui-handler.js"></script>
+  <script src="js/location.js"></script>
   
   <!-- 初始化腳本 -->
   <script>
