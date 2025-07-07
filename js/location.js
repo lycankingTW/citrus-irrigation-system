@@ -12,7 +12,7 @@ function resetButton() {
         autoLocateBtn.disabled = false;
         autoLocateBtn.innerHTML = '<i class="fas fa-location-arrow"></i> 自動定位';
     }
-} // 修正：添加缺失的右大括號
+}
 
 // 更新位置資訊顯示
 function updateLocationDisplay(position) {
@@ -145,7 +145,7 @@ function showLocationError(message) {
     `;
 }
 
-// 獲取行政區域和氣象資料
+// 獲取行政區域和氣象資料（修正版）
 async function getLocationAndWeather(longitude, latitude) {
     const cityList = {
         宜蘭縣: 'F-D0047-003', 桃園市: 'F-D0047-007', 新竹縣: 'F-D0047-011', 苗栗縣: 'F-D0047-015',
@@ -205,8 +205,10 @@ async function getLocationAndWeather(longitude, latitude) {
 
         debugLog(`正在獲取 ${cityName} ${townName} 的氣象資料...`);
 
-        // 獲取氣象資料
-        const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=JSON&locationName=${encodeURIComponent(townName)}`;
+        // 修正：先嘗試不指定地區的 API 呼叫
+        const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=JSON`;
+        
+        debugLog('API URL:', weatherApiUrl);
         
         const weatherResponse = await fetch(weatherApiUrl);
         if (!weatherResponse.ok) {
@@ -214,19 +216,76 @@ async function getLocationAndWeather(longitude, latitude) {
         }
 
         const weatherData = await weatherResponse.json();
+        debugLog('API 回應資料結構:', {
+            success: weatherData.success,
+            hasRecords: !!weatherData.records,
+            recordsKeys: weatherData.records ? Object.keys(weatherData.records) : []
+        });
         
-        if (weatherData.records && 
-            weatherData.records.location && 
-            weatherData.records.location.length > 0) {
+        // 修正：詳細檢查資料結構並適應多種格式
+        let locationData = null;
+        let actualLocationName = townName;
+        
+        if (weatherData.records) {
+            // 檢查新格式: records.location (直接陣列)
+            if (weatherData.records.location && Array.isArray(weatherData.records.location)) {
+                debugLog('找到 records.location 格式，地區數量:', weatherData.records.location.length);
+                
+                // 嘗試找到指定的鄉鎮區
+                locationData = weatherData.records.location.find(loc => {
+                    const locName = loc.locationName || '';
+                    return locName === townName || 
+                           locName.includes(townName.replace(/[區鎮鄉市]/g, '')) ||
+                           townName.includes(locName.replace(/[區鎮鄉市]/g, ''));
+                });
+                
+                // 如果找不到指定地區，使用第一個可用的
+                if (!locationData && weatherData.records.location.length > 0) {
+                    locationData = weatherData.records.location[0];
+                    actualLocationName = locationData.locationName;
+                    debugLog('使用第一個可用地區:', actualLocationName);
+                }
+            }
             
-            const weatherElement = weatherData.records.location[0].weatherElement;
-            await updateWeatherParameters(weatherElement, townName, cityName);
+            // 檢查舊格式: records.locations[0].location
+            if (!locationData && weatherData.records.locations && Array.isArray(weatherData.records.locations)) {
+                debugLog('找到 records.locations 格式');
+                
+                if (weatherData.records.locations[0] && weatherData.records.locations[0].location) {
+                    const locations = weatherData.records.locations[0].location;
+                    debugLog('locations[0].location 地區數量:', locations.length);
+                    
+                    locationData = locations.find(loc => {
+                        const locName = loc.locationName || '';
+                        return locName === townName || 
+                               locName.includes(townName.replace(/[區鎮鄉市]/g, '')) ||
+                               townName.includes(locName.replace(/[區鎮鄉市]/g, ''));
+                    });
+                    
+                    if (!locationData && locations.length > 0) {
+                        locationData = locations[0];
+                        actualLocationName = locationData.locationName;
+                        debugLog('使用第一個可用地區:', actualLocationName);
+                    }
+                }
+            }
+        }
+        
+        if (locationData && locationData.weatherElement) {
+            debugLog('找到氣象資料', {
+                locationName: locationData.locationName,
+                elementCount: locationData.weatherElement.length,
+                elements: locationData.weatherElement.map(e => e.elementName)
+            });
+            
+            // 更新氣象參數
+            await updateWeatherParameters(locationData.weatherElement, actualLocationName, cityName);
             
             // 顯示成功訊息
             weatherInfoElement.innerHTML = `
                 <div class="alert alert-success">
                     <i class="fas fa-check-circle"></i>
-                    氣象資料已成功載入自 ${cityName} ${townName}
+                    氣象資料已成功載入自 ${cityName} ${actualLocationName}
                     <br><small class="text-muted">座標: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</small>
                 </div>
             `;
@@ -234,7 +293,18 @@ async function getLocationAndWeather(longitude, latitude) {
             debugLog('氣象資料載入成功');
             
         } else {
-            throw new Error('無法解析氣象資料結構');
+            // 詳細的錯誤資訊
+            const errorDetails = {
+                hasRecords: !!weatherData.records,
+                recordsStructure: weatherData.records ? Object.keys(weatherData.records) : [],
+                locationFound: !!locationData,
+                weatherElementFound: locationData ? !!locationData.weatherElement : false
+            };
+            
+            debugLog('資料結構分析:', errorDetails);
+            debugLog('完整 API 回應:', weatherData);
+            
+            throw new Error(`無法解析氣象資料結構。詳細資訊: ${JSON.stringify(errorDetails)}`);
         }
 
     } catch (error) {
@@ -250,10 +320,13 @@ async function getLocationAndWeather(longitude, latitude) {
                     <i class="fas fa-exclamation-triangle"></i>
                     <strong>無法自動獲取氣象資料</strong><br>
                     ${error.message}<br>
-                    <small class="text-muted">請手動輸入氣象參數或選擇地區</small>
+                    <small class="text-muted">請手動輸入氣象參數或重試</small>
                     <br>
                     <button class="btn btn-sm btn-outline-primary mt-2" onclick="getLocationAndWeather(${longitude}, ${latitude})">
                         <i class="fas fa-redo"></i> 重試
+                    </button>
+                    <button class="btn btn-sm btn-outline-info mt-2" onclick="console.log('調試資訊已輸出到 Console')">
+                        <i class="fas fa-bug"></i> 查看 Console 調試資訊
                     </button>
                 </div>
             `;
@@ -265,55 +338,44 @@ async function getLocationAndWeather(longitude, latitude) {
 function getLocationByCoordinates(lat, lon) {
     debugLog('根據座標判斷位置', { lat, lon });
     
-    // 台灣主要縣市的座標範圍 (基於 WGS84 座標系統)
+    // 台灣主要縣市的座標範圍
     const locationRanges = {
-        '基隆市': { 
-            latMin: 25.1, latMax: 25.2, lonMin: 121.7, lonMax: 121.8, 
-            towns: ['中正區', '七堵區', '暖暖區', '仁愛區', '中山區', '安樂區', '信義區'] 
-        },
-        '臺北市': { 
-            latMin: 25.0, latMax: 25.3, lonMin: 121.4, lonMax: 121.7, 
-            towns: ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區', '信義區', '士林區', '北投區', '內湖區', '南港區', '文山區'] 
-        },
-        '新北市': { 
-            latMin: 24.6, latMax: 25.3, lonMin: 121.2, lonMax: 122.0, 
-            towns: ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區', '樹林區', '鶯歌區', '三峽區', '淡水區', '汐止區', '瑞芳區', '土城區', '蘆洲區', '五股區', '泰山區', '林口區', '深坑區', '石碇區', '坪林區', '三芝區', '石門區', '八里區', '平溪區', '雙溪區', '貢寮區', '金山區', '萬里區', '烏來區'] 
-        },
-        '桃園市': { 
-            latMin: 24.8, latMax: 25.1, lonMin: 121.0, lonMax: 121.5, 
-            towns: ['桃園區', '中壢區', '大溪區', '楊梅區', '蘆竹區', '大園區', '龜山區', '八德區', '龍潭區', '平鎮區', '新屋區', '觀音區', '復興區'] 
-        },
-        '新竹市': { 
-            latMin: 24.7, latMax: 24.9, lonMin: 120.9, lonMax: 121.0, 
-            towns: ['東區', '北區', '香山區'] 
-        },
-        '新竹縣': { 
-            latMin: 24.4, latMax: 24.9, lonMin: 120.8, lonMax: 121.3, 
-            towns: ['竹北市', '竹東鎮', '新埔鎮', '關西鎮', '湖口鄉', '新豐鄉', '芎林鄉', '橫山鄉', '北埔鄉', '寶山鄉', '峨眉鄉', '尖石鄉', '五峰鄉'] 
-        },
-        '苗栗縣': { 
-            latMin: 24.2, latMax: 24.8, lonMin: 120.6, lonMax: 121.1, 
-            towns: ['苗栗市', '頭份市', '苑裡鎮', '通霄鎮', '竹南鎮', '後龍鎮', '卓蘭鎮', '大湖鄉', '公館鄉', '銅鑼鄉', '南庄鄉', '頭屋鄉', '三義鄉', '西湖鄉', '造橋鄉', '三灣鄉', '獅潭鄉', '泰安鄉'] 
-        },
         '臺中市': { 
             latMin: 24.0, latMax: 24.5, lonMin: 120.4, lonMax: 121.0, 
             towns: ['中區', '東區', '南區', '西區', '北區', '西屯區', '南屯區', '北屯區', '豐原區', '東勢區', '大甲區', '清水區', '沙鹿區', '梧棲區', '后里區', '神岡區', '潭子區', '大雅區', '新社區', '石岡區', '外埔區', '大安區', '烏日區', '大肚區', '龍井區', '霧峰區', '太平區', '大里區', '和平區'] 
         },
-        '彰化縣': {
-            latMin: 23.8, latMax: 24.3, lonMin: 120.3, lonMax: 120.8,
-            towns: ['彰化市', '鹿港鎮', '和美鎮', '線西鄉', '伸港鄉', '福興鄉', '秀水鄉', '花壇鄉', '芬園鄉', '員林市', '溪湖鎮', '田中鎮', '大村鄉', '埔鹽鄉', '埔心鄉', '永靖鄉', '社頭鄉', '二水鄉', '北斗鎮', '二林鎮', '田尾鄉', '埤頭鄉', '芳苑鄉', '大城鄉', '竹塘鄉', '溪州鄉']
+        '苗栗縣': { 
+            latMin: 24.2, latMax: 24.8, lonMin: 120.6, lonMax: 121.1, 
+            towns: ['苗栗市', '頭份市', '公館鄉', '銅鑼鄉', '三義鄉', '大湖鄉', '卓蘭鎮', '通霄鎮', '苑裡鎮', '竹南鎮', '後龍鎮', '南庄鄉', '頭屋鄉', '西湖鄉', '造橋鄉', '三灣鄉', '獅潭鄉', '泰安鄉'] 
         },
-        '南投縣': {
-            latMin: 23.6, latMax: 24.2, lonMin: 120.6, lonMax: 121.2,
-            towns: ['南投市', '埔里鎮', '草屯鎮', '竹山鎮', '集集鎮', '名間鄉', '鹿谷鄉', '中寮鄉', '魚池鄉', '國姓鄉', '水里鄉', '信義鄉', '仁愛鄉']
+        '彰化縣': { 
+            latMin: 23.8, latMax: 24.3, lonMin: 120.3, lonMax: 120.8, 
+            towns: ['彰化市', '鹿港鎮', '和美鎮', '線西鄉', '伸港鄉', '福興鄉', '秀水鄉', '花壇鄉', '芬園鄉', '員林市', '溪湖鎮', '田中鎮', '大村鄉', '埔鹽鄉', '埔心鄉', '永靖鄉', '社頭鄉', '二水鄉', '北斗鎮', '二林鎮', '田尾鄉', '埤頭鄉', '芳苑鄉', '大城鄉', '竹塘鄉', '溪州鄉'] 
         }
     };
 
     for (const [cityName, range] of Object.entries(locationRanges)) {
         if (lat >= range.latMin && lat <= range.latMax && 
             lon >= range.lonMin && lon <= range.lonMax) {
-            // 選擇第一個鄉鎮區作為預設值
-            const townName = range.towns[0];
+            
+            // 根據座標選擇最適合的鄉鎮區
+            let townName = range.towns[0]; // 預設使用第一個
+            
+            // 對於臺中市，根據更精確的座標判斷
+            if (cityName === '臺中市') {
+                if (lat >= 24.13 && lat <= 24.16 && lon >= 120.67 && lon <= 120.69) {
+                    townName = '中區';
+                } else if (lat >= 24.13 && lat <= 24.16 && lon >= 120.69 && lon <= 120.71) {
+                    townName = '東區';
+                } else if (lat >= 24.11 && lat <= 24.14 && lon >= 120.67 && lon <= 120.69) {
+                    townName = '南區';
+                } else if (lat >= 24.13 && lat <= 24.16 && lon >= 120.65 && lon <= 120.67) {
+                    townName = '西區';
+                } else if (lat >= 24.15 && lat <= 24.18 && lon >= 120.67 && lon <= 120.69) {
+                    townName = '北區';
+                }
+            }
+            
             debugLog(`座標判斷結果: ${cityName} ${townName}`);
             return { cityName, townName };
         }
@@ -324,17 +386,14 @@ function getLocationByCoordinates(lat, lon) {
 }
 
 // 更新氣象參數到表單
-async function updateWeatherParameters(weatherElement, townName, cityName) {
+async function updateWeatherParameters(weatherElements, locationName, cityName) {
     try {
-        debugLog('開始更新氣象參數', { townName, cityName });
+        debugLog('開始更新氣象參數', { locationName, cityName });
+        debugLog('可用的氣象元素:', weatherElements.map(e => e.elementName));
         
-        if (!weatherElement || !Array.isArray(weatherElement)) {
-            throw new Error('氣象資料格式不正確');
-        }
-
-        // 更新溫度
-        const tempElement = weatherElement.find(e => e.elementName === 'T');
-        if (tempElement && tempElement.time && tempElement.time[0]) {
+        // 更新溫度 (T)
+        const tempElement = weatherElements.find(e => e.elementName === 'T');
+        if (tempElement && tempElement.time && tempElement.time[0] && tempElement.time[0].parameter) {
             const temperature = tempElement.time[0].parameter.parameterName;
             const tempInput = document.getElementById('temperature');
             if (tempInput) {
@@ -343,9 +402,9 @@ async function updateWeatherParameters(weatherElement, townName, cityName) {
             }
         }
 
-        // 更新相對濕度
-        const humidityElement = weatherElement.find(e => e.elementName === 'RH');
-        if (humidityElement && humidityElement.time && humidityElement.time[0]) {
+        // 更新相對濕度 (RH)
+        const humidityElement = weatherElements.find(e => e.elementName === 'RH');
+        if (humidityElement && humidityElement.time && humidityElement.time[0] && humidityElement.time[0].parameter) {
             const humidity = humidityElement.time[0].parameter.parameterName;
             const humidityInput = document.getElementById('humidity');
             if (humidityInput) {
@@ -354,9 +413,9 @@ async function updateWeatherParameters(weatherElement, townName, cityName) {
             }
         }
 
-        // 更新風速
-        const windElement = weatherElement.find(e => e.elementName === 'WS');
-        if (windElement && windElement.time && windElement.time[0]) {
+        // 更新風速 (WS)
+        const windElement = weatherElements.find(e => e.elementName === 'WS');
+        if (windElement && windElement.time && windElement.time[0] && windElement.time[0].parameter) {
             const windSpeed = windElement.time[0].parameter.parameterName;
             const windSpeedInput = document.getElementById('windSpeed');
             if (windSpeedInput) {
@@ -372,53 +431,23 @@ async function updateWeatherParameters(weatherElement, townName, cityName) {
             sourceInfo.innerHTML = `
                 <small class="text-muted">
                     <i class="fas fa-info-circle"></i>
-                    資料來源: ${cityName} ${townName} 氣象站 | 更新時間: ${timestamp}
+                    資料來源: ${cityName} ${locationName} 氣象站 | 更新時間: ${timestamp}
                 </small>
             `;
         }
 
-        // 觸發參數更新事件（如果需要）
-        if (typeof updateIrrigationCalculation === 'function') {
-            updateIrrigationCalculation();
+        // 觸發參數更新事件（如果有相關的計算函數）
+        if (typeof updateCalculation === 'function') {
+            updateCalculation();
         }
 
         debugLog('氣象參數更新完成');
-
+        
     } catch (error) {
-        debugLog('更新氣象參數失敗', error);
+        debugLog('更新氣象參數時發生錯誤', error);
         throw error;
     }
 }
 
-// 初始化位置服務（可選功能）
-function initLocationService() {
-    debugLog('初始化自動位置服務');
-    
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                const latitude = position.coords.latitude;
-                const longitude = position.coords.longitude;
-                debugLog('自動獲取位置成功', { latitude, longitude });
-                getLocationAndWeather(longitude, latitude);
-            },
-            function(error) {
-                debugLog('自動定位失敗', error.message);
-                // 不顯示alert，因為這是自動功能
-            },
-            {
-                enableHighAccuracy: false,
-                timeout: 5000,
-                maximumAge: 300000 // 5分鐘快取
-            }
-        );
-    }
-}
-
-// 全域測試函數
-window.testLocation = function() {
-    debugLog('執行位置測試');
-    document.getElementById('autoLocateBtn')?.click();
-};
-
+// 載入完成日誌
 debugLog('位置系統載入完成');
