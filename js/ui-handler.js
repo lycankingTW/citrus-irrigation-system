@@ -549,3 +549,104 @@ function loadParameters() {
         showErrorMessage('沒有找到儲存的參數設定');
     }
 }
+
+/**
+ * 更新參數描述和建議
+ * @param {HTMLElement} element - 參數輸入元素
+ */
+function updateParameterDescription(element) {
+    const value = parseFloat(element.value);
+    const id = element.id;
+    let description = '';
+    let suggestion = '';
+
+    // 參數範圍和建議對照表
+    const parameterRanges = {
+        temperature: [
+            { min: -Infinity, max: 10, description: '溫度過低，柑橘生長受限', suggestion: '建議使用防寒措施，可考慮使用防寒布或溫室保護' },
+            { min: 10, max: 15, description: '溫度偏低，生長緩慢', suggestion: '可考慮使用保溫設施，適度減少灌溉量' },
+            { min: 15, max: 25, description: '適宜溫度範圍', suggestion: '維持正常灌溉計畫' },
+            { min: 25, max: 30, description: '生長適溫', suggestion: '注意適度增加灌溉頻率' },
+            { min: 30, max: 35, description: '溫度偏高', suggestion: '建議增加灌溉次數，可考慮遮蔭' },
+            { min: 35, max: Infinity, description: '高溫逆境', suggestion: '需要採取降溫措施，增加灌溉頻率，使用遮蔭網' }
+        ],
+        humidity: [
+            { min: 0, max: 30, description: '濕度過低', suggestion: '需要增加灌溉頻率，考慮使用噴霧系統' },
+            { min: 30, max: 60, description: '適中濕度', suggestion: '維持正常灌溉管理' },
+            { min: 60, max: 80, description: '濕度較高', suggestion: '注意控制灌溉量，預防病害發生' },
+            { min: 80, max: 100, description: '濕度過高', suggestion: '減少灌溉量，加強通風，注意病害防治' }
+        ],
+        windSpeed: [
+            { min: 0, max: 2, description: '微風', suggestion: '正常灌溉即可' },
+            { min: 2, max: 5, description: '和風', suggestion: '可能需要略微增加灌溉量' },
+            { min: 5, max: 8, description: '強風', suggestion: '建議增加灌溉量15-20%' },
+            { min: 8, max: Infinity, description: '強風警告', suggestion: '大幅增加灌溉量，考慮使用防風措施' }
+        ],
+        currentMoisture: [
+            { min: 0, max: 20, description: '土壤極度乾燥', suggestion: '立即進行灌溉' },
+            { min: 20, max: 40, description: '土壤水分不足', suggestion: '需要進行灌溉' },
+            { min: 40, max: 60, description: '土壤水分適中', suggestion: '維持現有灌溉計畫' },
+            { min: 60, max: 80, description: '土壤水分充足', suggestion: '可暫緩灌溉' },
+            { min: 80, max: 100, description: '土壤水分過高', suggestion: '停止灌溉，注意排水' }
+        ],
+        irrigationInterval: [
+            { min: 0, max: 1, description: '每日灌溉', suggestion: '適用於幼苗或特殊天氣條件' },
+            { min: 1, max: 3, description: '高頻率灌溉', suggestion: '適用於開花結果期' },
+            { min: 3, max: 7, description: '中等頻率灌溉', suggestion: '適用於一般生長期' },
+            { min: 7, max: Infinity, description: '低頻率灌溉', suggestion: '注意監測土壤水分' }
+        ]
+    };
+
+    // 根據參數ID和數值找出對應的描述和建議
+    if (parameterRanges[id]) {
+        const range = parameterRanges[id].find(r => value > r.min && value <= r.max);
+        if (range) {
+            description = range.description;
+            suggestion = range.suggestion;
+        }
+    }
+
+    // 更新UI顯示
+    updateParameterUI(element, description, suggestion);
+}
+
+/**
+ * 更新參數UI顯示
+ * @param {HTMLElement} element - 參數輸入元素
+ * @param {string} description - 參數描述
+ * @param {string} suggestion - 建議措施
+ */
+function updateParameterUI(element, description, suggestion) {
+    // 找到或創建描述容器
+    let descContainer = document.getElementById(`${element.id}-description`);
+    if (!descContainer) {
+        descContainer = document.createElement('div');
+        descContainer.id = `${element.id}-description`;
+        descContainer.className = 'parameter-description mt-2 small';
+        element.parentNode.appendChild(descContainer);
+    }
+
+    // 更新描述內容
+    descContainer.innerHTML = `
+        <div class="alert alert-info p-2 mb-0">
+            <div><i class="fas fa-info-circle"></i> <strong>狀態：</strong>${description}</div>
+            <div><i class="fas fa-lightbulb"></i> <strong>建議：</strong>${suggestion}</div>
+        </div>
+    `;
+
+    // 添加淡入動畫效果
+    descContainer.style.animation = 'fadeIn 0.3s ease-in-out';
+}
+
+// 添加必要的CSS樣式
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .parameter-description {
+        transition: all 0.3s ease-in-out;
+    }
+`;
+document.head.appendChild(style);
