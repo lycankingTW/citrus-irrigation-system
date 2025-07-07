@@ -249,7 +249,7 @@ function activateAPIs(latitude, longitude) {
                 const rainProb = weatherElement[11].Time[0].ElementValue[0].ProbabilityOfPrecipitation;
 
                 // 更新表單中的氣象參數
-                updateWeatherInputs(avgTemp, windSpeed, townName, ctyName,  maxCI, minCI, rainProb);
+                updateWeatherInputs(avgTemp, windSpeed, townName, ctyName, maxCI, minCI, rainProb);
 
                 const weatherInfoHtml = `
                     <div class="alert alert-success">
