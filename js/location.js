@@ -249,7 +249,7 @@ function activateAPIs(latitude, longitude) {
                 const rainProb = weatherElement[11].Time[0].ElementValue[0].ProbabilityOfPrecipitation;
 
                 // 更新表單中的氣象參數
-                updateWeatherInputs(avgTemp, windSpeed, townName, ctyName);
+                updateWeatherInputs(avgTemp, windSpeed, townName, ctyName,  maxCI, minCI, rainProb);
 
                 const weatherInfoHtml = `
                     <div class="alert alert-success">
@@ -285,9 +285,9 @@ function activateAPIs(latitude, longitude) {
 }
 
 // 更新氣象參數到表單
-function updateWeatherInputs(temperature, windSpeed, townName, cityName) {
+function updateWeatherInputs(temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb) {
     try {
-        debugLog('開始更新氣象參數', { temperature, windSpeed, townName, cityName });
+        debugLog('開始更新氣象參數', { temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb });
         
         // 更新溫度
         const tempInput = document.getElementById('temperature');
@@ -301,6 +301,13 @@ function updateWeatherInputs(temperature, windSpeed, townName, cityName) {
         if (windSpeedInput) {
             windSpeedInput.value = windSpeed;
             debugLog(`✅ 風速已更新: ${windSpeed} m/s`);
+        }
+
+        // 🎯 更新降雨機率
+        const rainProbInput = document.getElementById('rainProb');
+        if (rainProbInput) {
+            rainProbInput.value = rainProb;
+            debugLog(`✅ 降雨機率已更新: ${rainProb}%`);
         }
 
         // 更新資料來源資訊
