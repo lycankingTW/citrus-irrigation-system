@@ -1,4 +1,4 @@
-// location.js - 整合簡化版本
+// location.js - 修正版本（移除錯誤的座標判斷）
 
 // 調試日誌函數
 function debugLog(message, data = null) {
@@ -86,7 +86,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         const longitude = position.coords.longitude;
                         
                         updateLocationDisplay(position);
-                        getLocationAndWeather(longitude, latitude);
+                        // 直接使用您的簡潔方法
+                        activateAPIs(latitude, longitude);
                         resetButton();
                     }, 
                     function(error) {
@@ -126,8 +127,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// 獲取行政區域和氣象資料（使用簡化方法）
-async function getLocationAndWeather(longitude, latitude) {
+// 使用您原本正確的方法
+function activateAPIs(latitude, longitude) {
     const cityList = {
         宜蘭縣: 'F-D0047-003', 桃園市: 'F-D0047-007', 新竹縣: 'F-D0047-011', 苗栗縣: 'F-D0047-015',
         彰化縣: 'F-D0047-019', 南投縣: 'F-D0047-023', 雲林縣: 'F-D0047-027', 嘉義縣: 'F-D0047-031',
@@ -136,172 +137,170 @@ async function getLocationAndWeather(longitude, latitude) {
         高雄市: 'F-D0047-067', 新北市: 'F-D0047-071', 臺中市: 'F-D0047-075', 臺南市: 'F-D0047-079',
         連江縣: 'F-D0047-083', 金門縣: 'F-D0047-087'
     };
-    
     const apikey = 'CWA-D32F5AAF-8CB1-49C5-A651-8AD504393777';
+    const format = 'JSON';
+    
+    // 使用國土測繪中心API - 這是正確的方法！
+    const locationApiUrl = `https://api.nlsc.gov.tw/other/TownVillagePointQuery/${longitude}/${latitude}/4326`;
+    
+    debugLog('查詢真實行政區:', locationApiUrl);
 
-    try {
-        debugLog('開始獲取氣象資料', { longitude, latitude });
+    // 創建或獲取天氣顯示區域
+    let weatherInfoElement = document.getElementById('weather-parameters') || 
+                            document.getElementById('weatherDisplay') ||
+                            document.getElementById('weatherInfo');
+    
+    if (!weatherInfoElement) {
+        weatherInfoElement = document.createElement('div');
+        weatherInfoElement.id = 'weather-parameters';
+        weatherInfoElement.className = 'weather-info mt-3';
         
-        // 創建或獲取天氣顯示區域
-        let weatherInfoElement = document.getElementById('weather-parameters') || 
-                                document.getElementById('weatherDisplay') ||
-                                document.getElementById('weatherInfo');
-        
-        if (!weatherInfoElement) {
-            weatherInfoElement = document.createElement('div');
-            weatherInfoElement.id = 'weather-parameters';
-            weatherInfoElement.className = 'weather-info mt-3';
+        const container = document.querySelector('.weather-section') ||
+                         document.querySelector('.container') ||
+                         document.querySelector('main') ||
+                         document.body;
+        container.appendChild(weatherInfoElement);
+    }
+
+    // 顯示載入中
+    weatherInfoElement.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">載入中...</span>
+            </div>
+            <p class="mt-2">正在查詢行政區資料...</p>
+        </div>
+    `;
+
+    fetch(locationApiUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then((res) => {
+            debugLog('✅ 國土測繪中心回應:', res);
             
-            const container = document.querySelector('.weather-section') ||
-                             document.querySelector('.container') ||
-                             document.querySelector('main') ||
-                             document.body;
-            container.appendChild(weatherInfoElement);
-        }
+            if (res.ctyCode) {
+                const ctyName = res.ctyName;
+                const townName = res.townName;
+                
+                debugLog(`🎯 正確的行政區: ${ctyName} ${townName}`);
+                
+                const dataid = cityList[ctyName];
+                if (dataid) {
+                    const apiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=${format}&LocationName=${townName}`;
+                    debugLog('氣象API URL:', apiUrl);
+                    getWeatherApi(apiUrl, townName, ctyName);
+                } else {
+                    throw new Error(`找不到 ${ctyName} 的氣象站編號`);
+                }
+            } else {
+                throw new Error('行政區資料無法取得');
+            }
+        })
+        .catch((err) => {
+            debugLog('❌ 行政區查詢失敗:', err);
+            weatherInfoElement.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    行政區查詢失敗: ${err.message}
+                </div>
+            `;
+        });
 
-        // 顯示載入中狀態
+    function getWeatherApi(apiUrl, townName, ctyName) {
+        debugLog(`正在獲取 ${ctyName} ${townName} 的氣象資料...`);
+        
         weatherInfoElement.innerHTML = `
             <div class="text-center">
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">載入中...</span>
                 </div>
-                <p class="mt-2">正在獲取氣象資料...</p>
+                <p class="mt-2">正在獲取 ${ctyName} ${townName} 氣象資料...</p>
             </div>
         `;
-
-        // 使用國土測繪中心API獲取行政區
-        const locationApiUrl = `https://api.nlsc.gov.tw/other/TownVillagePointQuery/${longitude}/${latitude}/4326`;
-        debugLog('查詢行政區 API:', locationApiUrl);
         
-        const locationResponse = await fetch(locationApiUrl);
-        if (!locationResponse.ok) {
-            throw new Error(`行政區查詢失敗: ${locationResponse.status}`);
-        }
-        
-        const locationData = await locationResponse.json();
-        debugLog('行政區查詢結果:', locationData);
-        
-        if (!locationData.ctyCode) {
-            throw new Error('無法取得行政區資料');
-        }
-        
-        const ctyName = locationData.ctyName;
-        const townName = locationData.townName;
-        const dataid = cityList[ctyName];
-        
-        if (!dataid) {
-            throw new Error(`找不到 ${ctyName} 的氣象站編號`);
-        }
-        
-        debugLog(`正在獲取 ${ctyName} ${townName} 的氣象資料...`);
-        
-        // 使用 LocationName 參數過濾特定地區的氣象資料
-        const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=JSON&LocationName=${townName}`;
-        debugLog('氣象 API URL:', weatherApiUrl);
-        
-        const weatherResponse = await fetch(weatherApiUrl);
-        if (!weatherResponse.ok) {
-            throw new Error(`氣象資料獲取失敗: ${weatherResponse.status} ${weatherResponse.statusText}`);
-        }
-
-        const weatherData = await weatherResponse.json();
-        debugLog('氣象 API 回應:', weatherData);
-        
-        // 檢查資料結構並提取氣象元素
-        if (weatherData.records && 
-            weatherData.records.Locations && 
-            weatherData.records.Locations[0] && 
-            weatherData.records.Locations[0].Location && 
-            weatherData.records.Locations[0].Location[0]) {
-            
-            const weatherElement = weatherData.records.Locations[0].Location[0].WeatherElement;
-            
-            if (weatherElement) {
-                debugLog('找到氣象元素:', weatherElement.length);
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((res) => {
+                debugLog('✅ 氣象API回應:', res);
                 
-                // 更新氣象參數到表單
-                updateWeatherInputs(weatherElement, townName, ctyName);
+                if (!townName || !res.records || !res.records.Locations || !res.records.Locations[0] || !res.records.Locations[0].Location || !res.records.Locations[0].Location[0]) {
+                    throw new Error('氣象資料格式異常');
+                }
                 
-                // 顯示成功訊息
-                weatherInfoElement.innerHTML = `
+                const weatherElement = res.records.Locations[0].Location[0].WeatherElement;
+                const startTime = new Date(weatherElement[0].Time[0].StartTime);
+                const endTime = new Date(weatherElement[0].Time[0].EndTime);
+                const dateRange = `${startTime.getMonth() + 1}月${startTime.getDate()}日 ${startTime.getHours()}點${startTime.getMinutes()}分 ～ ${endTime.getMonth() + 1}月${endTime.getDate()}日 ${endTime.getHours()}點${endTime.getMinutes()}分`;
+
+                const description = weatherElement[14].Time[0].ElementValue[0].WeatherDescription;
+                const avgTemp = weatherElement[0].Time[0].ElementValue[0].Temperature;
+                const maxCI = weatherElement[7].Time[0].ElementValue[0].MaxComfortIndex;
+                const minCI = weatherElement[8].Time[0].ElementValue[0].MinComfortIndex;
+                const windSpeed = weatherElement[9].Time[0].ElementValue[0].WindSpeed;
+                const rainProb = weatherElement[11].Time[0].ElementValue[0].ProbabilityOfPrecipitation;
+
+                // 更新表單中的氣象參數
+                updateWeatherInputs(avgTemp, windSpeed, townName, ctyName);
+
+                const weatherInfoHtml = `
                     <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        氣象資料已成功載入自 ${ctyName} ${townName}
-                        <br><small class="text-muted">座標: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</small>
+                        <h3><i class="fas fa-check-circle"></i> ${ctyName} ${townName} 氣象預報</h3>
+                        <p><strong>預報時段：</strong>${dateRange}</p>
+                        <p><strong>天氣描述：</strong>${description}</p>
+                        <p><strong>平均溫度：</strong>${avgTemp} °C</p>
+                        <p><strong>舒適度指數：</strong> ${minCI} ～ ${maxCI}</p>
+                        <p><strong>風速：</strong>${windSpeed} m/s</p>
+                        <p><strong>12小時降雨機率：</strong>${rainProb} %</p>
+                        <small class="text-muted">座標: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</small>
                     </div>
                 `;
+                weatherInfoElement.innerHTML = weatherInfoHtml;
                 
-                debugLog('✅ 氣象資料載入成功');
+                debugLog(`✅ 氣象資料載入成功: ${ctyName} ${townName}`);
                 
-            } else {
-                throw new Error('找不到氣象元素資料');
-            }
-            
-        } else {
-            throw new Error('氣象資料格式異常');
-        }
-
-    } catch (error) {
-        debugLog('❌ 獲取氣象資料失敗', error);
-        
-        const weatherInfoElement = document.getElementById('weather-parameters') || 
-                                  document.getElementById('weatherDisplay') ||
-                                  document.getElementById('weatherInfo');
-        
-        if (weatherInfoElement) {
-            weatherInfoElement.innerHTML = `
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>無法自動獲取氣象資料</strong><br>
-                    ${error.message}<br>
-                    <small class="text-muted">請手動輸入氣象參數</small>
-                    <br>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="getLocationAndWeather(${longitude}, ${latitude})">
-                        <i class="fas fa-redo"></i> 重試
-                    </button>
-                </div>
-            `;
-        }
+            })
+            .catch((err) => {
+                debugLog('❌ 氣象資料獲取失敗:', err);
+                weatherInfoElement.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        氣象資料獲取失敗: ${err.message}
+                        <br>
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
+                            <i class="fas fa-redo"></i> 重試
+                        </button>
+                    </div>
+                `;
+            });
     }
 }
 
 // 更新氣象參數到表單
-function updateWeatherInputs(weatherElements, townName, cityName) {
+function updateWeatherInputs(temperature, windSpeed, townName, cityName) {
     try {
-        debugLog('開始更新氣象參數', { townName, cityName });
-        debugLog('可用的氣象元素:', weatherElements.map(e => e.ElementName));
+        debugLog('開始更新氣象參數', { temperature, windSpeed, townName, cityName });
         
-        // 更新溫度 (T)
-        const tempElement = weatherElements.find(e => e.ElementName === 'T');
-        if (tempElement && tempElement.Time[0]) {
-            const temperature = tempElement.Time[0].Parameter.ParameterName;
-            const tempInput = document.getElementById('temperature');
-            if (tempInput) {
-                tempInput.value = temperature;
-                debugLog(`✅ 溫度已更新: ${temperature}°C`);
-            }
+        // 更新溫度
+        const tempInput = document.getElementById('temperature');
+        if (tempInput) {
+            tempInput.value = temperature;
+            debugLog(`✅ 溫度已更新: ${temperature}°C`);
         }
 
-        // 更新相對濕度 (RH)
-        const humidityElement = weatherElements.find(e => e.ElementName === 'RH');
-        if (humidityElement && humidityElement.Time[0]) {
-            const humidity = humidityElement.Time[0].Parameter.ParameterName;
-            const humidityInput = document.getElementById('humidity');
-            if (humidityInput) {
-                humidityInput.value = humidity;
-                debugLog(`✅ 濕度已更新: ${humidity}%`);
-            }
-        }
-
-        // 更新風速 (WS)
-        const windElement = weatherElements.find(e => e.ElementName === 'WS');
-        if (windElement && windElement.Time[0]) {
-            const windSpeed = windElement.Time[0].Parameter.ParameterName;
-            const windSpeedInput = document.getElementById('windSpeed');
-            if (windSpeedInput) {
-                windSpeedInput.value = windSpeed;
-                debugLog(`✅ 風速已更新: ${windSpeed} m/s`);
-            }
+        // 更新風速
+        const windSpeedInput = document.getElementById('windSpeed');
+        if (windSpeedInput) {
+            windSpeedInput.value = windSpeed;
+            debugLog(`✅ 風速已更新: ${windSpeed} m/s`);
         }
 
         // 更新資料來源資訊
@@ -325,7 +324,6 @@ function updateWeatherInputs(weatherElements, townName, cityName) {
         
     } catch (error) {
         debugLog('❌ 更新氣象參數時發生錯誤', error);
-        throw error;
     }
 }
 
