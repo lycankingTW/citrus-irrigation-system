@@ -1,11 +1,18 @@
-// location.js
+// location.js - 修正版本
+
+// 調試日誌函數
+function debugLog(message, data = null) {
+    console.log(`[位置系統] ${message}`, data || '');
+}
 
 // 重置按鈕狀態
 function resetButton() {
     const autoLocateBtn = document.getElementById('autoLocateBtn');
     if (autoLocateBtn) {
         autoLocateBtn.disabled = false;
-        autoLocateBtn.textContent = '自動定位';
+        autoLocateBtn.innerHTML = '<i class="fas fa-location-arrow"></i> 自動定位';
+    }
+} // 修正：添加缺失的右大括號
 
 // 更新位置資訊顯示
 function updateLocationDisplay(position) {
@@ -16,20 +23,43 @@ function updateLocationDisplay(position) {
                 <h6><i class="fas fa-map-marker-alt"></i> 位置獲取成功！</h6>
                 <p><strong>緯度：</strong> ${position.coords.latitude.toFixed(6)}</p>
                 <p><strong>經度：</strong> ${position.coords.longitude.toFixed(6)}</p>
-                <p><strong>時間：</strong> ${new Date(position.timestamp).toLocaleString()}</p>
+                <p><strong>精確度：</strong> ${position.coords.accuracy} 公尺</p>
+                <p><strong>時間：</strong> ${new Date(position.timestamp).toLocaleString('zh-TW')}</p>
             </div>
         `;
+    } else {
+        debugLog('警告：找不到 location-data 元素');
+        // 創建顯示區域
+        const newDisplay = document.createElement('div');
+        newDisplay.id = 'location-data';
+        newDisplay.className = 'mt-3';
+        newDisplay.innerHTML = `
+            <div class="alert alert-success">
+                <h6><i class="fas fa-map-marker-alt"></i> 位置獲取成功！</h6>
+                <p>緯度: ${position.coords.latitude.toFixed(6)}, 經度: ${position.coords.longitude.toFixed(6)}</p>
+            </div>
+        `;
+        
+        const container = document.querySelector('.container') || document.querySelector('main') || document.body;
+        container.appendChild(newDisplay);
     }
 }
 
 // 當文件載入完成後執行
 document.addEventListener('DOMContentLoaded', function() {
+    debugLog('DOM 載入完成，初始化位置服務');
+    
     // 找到自動定位按鈕
     const autoLocateBtn = document.getElementById('autoLocateBtn');
     
     if (autoLocateBtn) {
+        debugLog('找到定位按鈕，綁定事件');
+        
         // 為按鈕添加點擊事件
-        autoLocateBtn.addEventListener('click', function() {
+        autoLocateBtn.addEventListener('click', function(event) {
+            event.preventDefault();
+            debugLog('定位按鈕被點擊');
+            
             // 檢查瀏覽器是否支援地理位置功能
             if ("geolocation" in navigator) {
                 // 顯示載入中狀態
@@ -38,6 +68,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
+                        debugLog('位置獲取成功', {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        });
+                        
                         const latitude = position.coords.latitude;
                         const longitude = position.coords.longitude;
                         
@@ -51,22 +86,26 @@ document.addEventListener('DOMContentLoaded', function() {
                         resetButton();
                     }, 
                     function(error) {
-                        console.error("定位錯誤：", error);
+                        debugLog('定位錯誤', error);
                         
                         let errorMessage = "無法取得您的位置";
                         switch(error.code) {
                             case error.PERMISSION_DENIED:
-                                errorMessage = "用戶拒絕了定位請求";
+                                errorMessage = "用戶拒絕了定位請求。請在瀏覽器設定中允許位置存取。";
                                 break;
                             case error.POSITION_UNAVAILABLE:
-                                errorMessage = "位置信息不可用";
+                                errorMessage = "位置信息不可用。請檢查您的網路連線。";
                                 break;
                             case error.TIMEOUT:
-                                errorMessage = "定位請求超時";
+                                errorMessage = "定位請求超時。請重試。";
+                                break;
+                            default:
+                                errorMessage = `定位錯誤: ${error.message}`;
                                 break;
                         }
                         
-                        alert(errorMessage + "，請手動輸入位置資訊");
+                        // 顯示錯誤訊息
+                        showLocationError(errorMessage);
                         resetButton();
                     },
                     {
@@ -79,14 +118,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert("您的瀏覽器不支援地理位置功能");
             }
         });
+    } else {
+        debugLog('警告：找不到 autoLocateBtn 按鈕');
     }
-    
-    // 自動初始化位置服務（可選）
-    // initLocationService();
 });
 
+// 顯示位置錯誤訊息
+function showLocationError(message) {
+    let errorDisplay = document.getElementById('location-data');
+    if (!errorDisplay) {
+        errorDisplay = document.createElement('div');
+        errorDisplay.id = 'location-data';
+        errorDisplay.className = 'mt-3';
+        const container = document.querySelector('.container') || document.querySelector('main') || document.body;
+        container.appendChild(errorDisplay);
+    }
+    
+    errorDisplay.innerHTML = `
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle"></i> 定位失敗</h6>
+            <p>${message}</p>
+            <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('autoLocateBtn').click()">
+                <i class="fas fa-redo"></i> 重試
+            </button>
+        </div>
+    `;
+}
+
 // 獲取行政區域和氣象資料
-// 修改後的 getLocationAndWeather 函數
 async function getLocationAndWeather(longitude, latitude) {
     const cityList = {
         宜蘭縣: 'F-D0047-003', 桃園市: 'F-D0047-007', 新竹縣: 'F-D0047-011', 苗栗縣: 'F-D0047-015',
@@ -100,13 +159,15 @@ async function getLocationAndWeather(longitude, latitude) {
     const apikey = 'CWA-D32F5AAF-8CB1-49C5-A651-8AD504393777';
 
     try {
-        // 檢查天氣參數顯示區域
+        debugLog('開始獲取氣象資料', { longitude, latitude });
+        
+        // 檢查或創建天氣參數顯示區域
         let weatherInfoElement = document.getElementById('weather-parameters') || 
                                 document.getElementById('weatherDisplay') ||
                                 document.getElementById('weatherInfo');
         
         if (!weatherInfoElement) {
-            console.warn('找不到天氣參數顯示區域，創建新的顯示區域');
+            debugLog('創建新的天氣顯示區域');
             weatherInfoElement = document.createElement('div');
             weatherInfoElement.id = 'weather-parameters';
             weatherInfoElement.className = 'weather-info mt-3';
@@ -128,7 +189,7 @@ async function getLocationAndWeather(longitude, latitude) {
             </div>
         `;
 
-        // **移除有問題的位置 API 調用，改用座標判斷**
+        // 根據座標判斷位置
         const locationInfo = getLocationByCoordinates(latitude, longitude);
         
         if (!locationInfo) {
@@ -142,10 +203,10 @@ async function getLocationAndWeather(longitude, latitude) {
             throw new Error(`找不到 ${cityName} 的氣象站編號`);
         }
 
-        // 直接獲取氣象資料
-        const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=JSON&LocationName=${townName}`;
-        
-        console.log(`正在獲取 ${cityName} ${townName} 的氣象資料...`);
+        debugLog(`正在獲取 ${cityName} ${townName} 的氣象資料...`);
+
+        // 獲取氣象資料
+        const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=JSON&locationName=${encodeURIComponent(townName)}`;
         
         const weatherResponse = await fetch(weatherApiUrl);
         if (!weatherResponse.ok) {
@@ -154,9 +215,12 @@ async function getLocationAndWeather(longitude, latitude) {
 
         const weatherData = await weatherResponse.json();
         
-        if (weatherData.records && weatherData.records.Locations && weatherData.records.Locations[0].Location.length > 0) {
-            const weatherElement = weatherData.records.Locations[0].Location[0].WeatherElement;
-            updateWeatherParameters(weatherElement, townName, cityName);
+        if (weatherData.records && 
+            weatherData.records.location && 
+            weatherData.records.location.length > 0) {
+            
+            const weatherElement = weatherData.records.location[0].weatherElement;
+            await updateWeatherParameters(weatherElement, townName, cityName);
             
             // 顯示成功訊息
             weatherInfoElement.innerHTML = `
@@ -166,15 +230,20 @@ async function getLocationAndWeather(longitude, latitude) {
                     <br><small class="text-muted">座標: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</small>
                 </div>
             `;
+            
+            debugLog('氣象資料載入成功');
+            
         } else {
             throw new Error('無法解析氣象資料結構');
         }
 
     } catch (error) {
-        console.error('獲取氣象資料失敗：', error);
+        debugLog('獲取氣象資料失敗', error);
         
         const weatherInfoElement = document.getElementById('weather-parameters') || 
-                                  document.getElementById('weatherDisplay');
+                                  document.getElementById('weatherDisplay') ||
+                                  document.getElementById('weatherInfo');
+        
         if (weatherInfoElement) {
             weatherInfoElement.innerHTML = `
                 <div class="alert alert-warning">
@@ -182,6 +251,10 @@ async function getLocationAndWeather(longitude, latitude) {
                     <strong>無法自動獲取氣象資料</strong><br>
                     ${error.message}<br>
                     <small class="text-muted">請手動輸入氣象參數或選擇地區</small>
+                    <br>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="getLocationAndWeather(${longitude}, ${latitude})">
+                        <i class="fas fa-redo"></i> 重試
+                    </button>
                 </div>
             `;
         }
@@ -190,6 +263,8 @@ async function getLocationAndWeather(longitude, latitude) {
 
 // 根據座標判斷縣市的函數
 function getLocationByCoordinates(lat, lon) {
+    debugLog('根據座標判斷位置', { lat, lon });
+    
     // 台灣主要縣市的座標範圍 (基於 WGS84 座標系統)
     const locationRanges = {
         '基隆市': { 
@@ -223,8 +298,15 @@ function getLocationByCoordinates(lat, lon) {
         '臺中市': { 
             latMin: 24.0, latMax: 24.5, lonMin: 120.4, lonMax: 121.0, 
             towns: ['中區', '東區', '南區', '西區', '北區', '西屯區', '南屯區', '北屯區', '豐原區', '東勢區', '大甲區', '清水區', '沙鹿區', '梧棲區', '后里區', '神岡區', '潭子區', '大雅區', '新社區', '石岡區', '外埔區', '大安區', '烏日區', '大肚區', '龍井區', '霧峰區', '太平區', '大里區', '和平區'] 
+        },
+        '彰化縣': {
+            latMin: 23.8, latMax: 24.3, lonMin: 120.3, lonMax: 120.8,
+            towns: ['彰化市', '鹿港鎮', '和美鎮', '線西鄉', '伸港鄉', '福興鄉', '秀水鄉', '花壇鄉', '芬園鄉', '員林市', '溪湖鎮', '田中鎮', '大村鄉', '埔鹽鄉', '埔心鄉', '永靖鄉', '社頭鄉', '二水鄉', '北斗鎮', '二林鎮', '田尾鄉', '埤頭鄉', '芳苑鄉', '大城鄉', '竹塘鄉', '溪州鄉']
+        },
+        '南投縣': {
+            latMin: 23.6, latMax: 24.2, lonMin: 120.6, lonMax: 121.2,
+            towns: ['南投市', '埔里鎮', '草屯鎮', '竹山鎮', '集集鎮', '名間鄉', '鹿谷鄉', '中寮鄉', '魚池鄉', '國姓鄉', '水里鄉', '信義鄉', '仁愛鄉']
         }
-        // 可以繼續添加其他縣市...
     };
 
     for (const [cityName, range] of Object.entries(locationRanges)) {
@@ -232,67 +314,54 @@ function getLocationByCoordinates(lat, lon) {
             lon >= range.lonMin && lon <= range.lonMax) {
             // 選擇第一個鄉鎮區作為預設值
             const townName = range.towns[0];
-            console.log(`座標判斷結果: ${cityName} ${townName}`);
+            debugLog(`座標判斷結果: ${cityName} ${townName}`);
             return { cityName, townName };
         }
     }
-}
-
-        
-        // 顯示錯誤訊息
-        const weatherInfoElement = document.getElementById('weather-parameters') || 
-                                  document.getElementById('weatherDisplay');
-        if (weatherInfoElement) {
-            weatherInfoElement.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>資料獲取失敗：</strong>${error.message}
-                    <br><small>請檢查網路連線或手動輸入氣象參數</small>
-                </div>
-            `;
-        }
-    }
+    
+    debugLog('無法判斷位置，座標超出範圍');
+    return null;
 }
 
 // 更新氣象參數到表單
-function updateWeatherParameters(weatherElement, townName, cityName) {
+async function updateWeatherParameters(weatherElement, townName, cityName) {
     try {
+        debugLog('開始更新氣象參數', { townName, cityName });
+        
+        if (!weatherElement || !Array.isArray(weatherElement)) {
+            throw new Error('氣象資料格式不正確');
+        }
+
         // 更新溫度
-        if (weatherElement[0] && weatherElement[0].Time[0]) {
-            const temperature = weatherElement[0].Time[0].ElementValue[0].value;
+        const tempElement = weatherElement.find(e => e.elementName === 'T');
+        if (tempElement && tempElement.time && tempElement.time[0]) {
+            const temperature = tempElement.time[0].parameter.parameterName;
             const tempInput = document.getElementById('temperature');
             if (tempInput) {
                 tempInput.value = temperature;
-                console.log(`溫度已更新: ${temperature}°C`);
+                debugLog(`溫度已更新: ${temperature}°C`);
             }
         }
 
         // 更新相對濕度
-        if (weatherElement[2] && weatherElement[2].Time[0]) {
-            const humidity = weatherElement[2].Time[0].ElementValue[0].value;
+        const humidityElement = weatherElement.find(e => e.elementName === 'RH');
+        if (humidityElement && humidityElement.time && humidityElement.time[0]) {
+            const humidity = humidityElement.time[0].parameter.parameterName;
             const humidityInput = document.getElementById('humidity');
             if (humidityInput) {
                 humidityInput.value = humidity;
-                console.log(`濕度已更新: ${humidity}%`);
+                debugLog(`濕度已更新: ${humidity}%`);
             }
         }
 
         // 更新風速
-        if (weatherElement[4] && weatherElement[4].Time[0]) {
-            const windSpeed = weatherElement[4].Time[0].ElementValue[0].value;
+        const windElement = weatherElement.find(e => e.elementName === 'WS');
+        if (windElement && windElement.time && windElement.time[0]) {
+            const windSpeed = windElement.time[0].parameter.parameterName;
             const windSpeedInput = document.getElementById('windSpeed');
             if (windSpeedInput) {
                 windSpeedInput.value = windSpeed;
-                console.log(`風速已更新: ${windSpeed} m/s`);
-            }
-        }
-
-        // 更新日照時數 (如果有的話)
-        const sunshine = weatherElement.find(e => e.elementName === 'GloblRad');
-        if (sunshine && sunshine.Time[0]) {
-            const sunshineInput = document.getElementById('sunshine');
-            if (sunshineInput) {
-                sunshineInput.value = sunshine.Time[0].ElementValue[0].value;
+                debugLog(`風速已更新: ${windSpeed} m/s`);
             }
         }
 
@@ -313,26 +382,28 @@ function updateWeatherParameters(weatherElement, townName, cityName) {
             updateIrrigationCalculation();
         }
 
-        console.log('氣象參數更新完成');
+        debugLog('氣象參數更新完成');
 
     } catch (error) {
-        console.error('更新氣象參數失敗：', error);
+        debugLog('更新氣象參數失敗', error);
         throw error;
     }
 }
 
 // 初始化位置服務（可選功能）
 function initLocationService() {
+    debugLog('初始化自動位置服務');
+    
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
             function(position) {
                 const latitude = position.coords.latitude;
                 const longitude = position.coords.longitude;
-                console.log('自動獲取位置成功');
+                debugLog('自動獲取位置成功', { latitude, longitude });
                 getLocationAndWeather(longitude, latitude);
             },
             function(error) {
-                console.warn("自動定位失敗：", error.message);
+                debugLog('自動定位失敗', error.message);
                 // 不顯示alert，因為這是自動功能
             },
             {
@@ -343,3 +414,11 @@ function initLocationService() {
         );
     }
 }
+
+// 全域測試函數
+window.testLocation = function() {
+    debugLog('執行位置測試');
+    document.getElementById('autoLocateBtn')?.click();
+};
+
+debugLog('位置系統載入完成');
