@@ -11,8 +11,8 @@ const CONFIG = {
   
   // 農業部API設定
   AGRI_API: {
-    baseURL: 'https://data.moa.gov.tw/api/v1/AutoWeatherStationType/?api_key=IKXAGW0DJ1G90FL4SJ5N364EM567QX',
-    apiKey: 'IKXAGW0DJ1G90FL4SJ5N364EM567QX', // 請替換為您的農業部API金鑰
+    baseURL: 'https://data.moa.gov.tw/api/v1/AutoWeatherStationType/',
+    api_key: 'IKXAGW0DJ1G90FL4SJ5N364EM567QX', // 請替換為您的農業部API金鑰
     timeout: 10000,
     retryCount: 3,              // API失敗重試次數
     retryDelay: 2000           // 重試間隔(毫秒)
