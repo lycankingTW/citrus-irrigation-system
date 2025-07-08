@@ -39,7 +39,7 @@
       <div class="container">
           <a class="navbar-brand" href="#" onclick="location.reload()">
               <i class="fas fa-seedling me-2"></i>
-              柑橘園智能灌溉計算系統
+              柑橘園智能灌溉系統
           </a>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
               <span class="navbar-toggler-icon"></span>
@@ -47,13 +47,24 @@
           <div class="collapse navbar-collapse" id="navbarNav">
               <ul class="navbar-nav ms-auto">
                   <li class="nav-item">
-                      <a class="nav-link" href="#parameters">參數設定</a>
+                      <a class="nav-link" href="#calculator">
+                          <i class="fas fa-calculator me-1"></i>計算器
+                      </a>
                   </li>
                   <li class="nav-item">
-                      <a class="nav-link" href="#results">計算結果</a>
+                      <a class="nav-link" href="#results">
+                          <i class="fas fa-chart-line me-1"></i>結果分析
+                      </a>
                   </li>
                   <li class="nav-item">
-                      <a class="nav-link" href="#about">關於系統</a>
+                      <a class="nav-link" href="docs/README.md" target="_blank">
+                          <i class="fas fa-book me-1"></i>使用說明
+                      </a>
+                  </li>
+                  <li class="nav-item">
+                      <a class="nav-link" href="docs/calculation-guide.md" target="_blank">
+                          <i class="fas fa-info-circle me-1"></i>計算指南
+                      </a>
                   </li>
               </ul>
           </div>
@@ -61,403 +72,284 @@
   </nav>
 
   <!-- 主要內容 -->
-  <div class="container mt-4">
-      <!-- 系統標題與介紹 -->
-      <div class="row mb-4">
-          <div class="col-12">
-              <div class="card shadow-sm">
-                  <div class="card-body text-center">
-                      <h1 class="card-title text-success">
-                          <i class="fas fa-tint me-2"></i>
-                          柑橘園智能灌溉計算系統
-                      </h1>
-                      <p class="card-text text-muted">
-                          基於FAO-56蒸發散公式，提供精確的柑橘園灌溉需求計算
-                      </p>
-                      <small class="text-muted">
-                          開發者：林鈺荏 | 苗栗區農業改良場
-                      </small>
+  <div class="container-fluid">
+      <div class="row">
+          <!-- 左側參數設定面板 -->
+          <div class="col-lg-4 col-md-12">
+              <div class="parameter-panel">
+                  <!-- 系統標題 -->
+                  <div class="system-header">
+                      <h2><i class="fas fa-tint text-primary"></i> 灌溉計算參數</h2>
+                      <p class="text-muted">請設定以下參數進行灌溉需求計算</p>
                   </div>
-              </div>
-          </div>
-      </div>
 
-      <!-- 位置資訊與自動定位 -->
-      <div class="row mb-4">
-          <div class="col-12">
-              <div class="card">
-                  <div class="card-header">
-                      <h5 class="mb-0">
-                          <i class="fas fa-map-marker-alt me-2"></i>
-                          位置資訊
-                      </h5>
-                  </div>
-                  <div class="card-body">
-                      <div class="row">
-                          <div class="col-md-3">
-                              <button type="button" class="btn btn-outline-primary" id="autoLocateBtn">
-                                  <i class="fas fa-location-arrow"></i> 自動定位
+                  <!-- 參數表單 -->
+                  <form id="irrigationForm" class="parameter-form">
+                      <!-- 基本參數 -->
+                      <div class="parameter-section">
+                          <h5 class="section-title">
+                              <i class="fas fa-calendar-alt text-success"></i>
+                              基本參數
+                          </h5>
+                          
+                          <div class="mb-3">
+                              <label for="currentDate" class="form-label">當前日期</label>
+                              <input type="date" class="form-control" id="currentDate" required>
+                          </div>
+                          
+                          <div class="mb-3">
+                              <label for="growthStage" class="form-label">生育期</label>
+                              <select class="form-select" id="growthStage" required>
+                                  <option value="flowerBud">花芽分化期</option>
+                                  <option value="flowering">開花期</option>
+                                  <option value="fruitSet">著果期</option>
+                                  <option value="fruitDev" selected>果實發育期</option>
+                                  <option value="fruitMature">果實成熟期</option>
+                                  <option value="dormant">休眠期</option>
+                              </select>
+                          </div>
+                          
+                          <div class="mb-3">
+                              <label for="plantAge" class="form-label">樹齡 (年)</label>
+                              <input type="number" class="form-control" id="plantAge" min="1" max="50" value="8" required>
+                          </div>
+                      </div>
+
+                      <!-- 氣象參數 -->
+                      <div class="parameter-section">
+                          <h5 class="section-title">
+                              <i class="fas fa-cloud-sun text-warning"></i>
+                              氣象參數
+                          </h5>
+
+                          <!-- 自動定位按鈕和資料來源顯示 -->
+                          <div class="mb-3">
+                              <button type="button" class="btn btn-primary" id="autoLocateBtn">
+                                  <i class="fas fa-location-arrow me-2"></i>
+                                  自動獲取當前位置氣象資料
                               </button>
+                              <small id="dataSource" class="form-text text-muted d-block mt-2">資料來源：農業部自動氣象站</small>
                           </div>
-                          <div class="col-md-3">
-                              <label for="latitude" class="form-label">緯度</label>
-                              <input type="number" class="form-control" id="latitude" step="0.000001" placeholder="例：24.5">
+                          
+                          <!-- 位置資訊顯示 -->
+                          <div id="location-data"></div>
+                          
+                          <!-- 氣象參數顯示區域 -->
+                          <div id="weather-parameters"></div>
+              
+                          <!-- 天氣描述 -->
+                          <div class="mb-3">
+                              <p id="weatherDescription" class="alert alert-info" style="display: none;"></p>
                           </div>
-                          <div class="col-md-3">
-                              <label for="longitude" class="form-label">經度</label>
-                              <input type="number" class="form-control" id="longitude" step="0.000001" placeholder="例：120.8">
+
+                          <!-- 氣溫輸入框 -->
+                          <div class="mb-3">
+                              <label for="temperature" class="form-label">氣溫 (°C)</label>
+                              <input type="number" class="form-control" id="temperature" step="0.1" min="-10" max="50" value="25" required>
+                              <small class="form-text text-muted">自動獲取的即時氣溫數據</small>
                           </div>
-                          <div class="col-md-3">
-                              <label for="elevation" class="form-label">海拔 (m)</label>
-                              <input type="number" class="form-control" id="elevation" step="1" placeholder="例：150">
+              
+                          <!-- 相對濕度輸入框 -->
+                          <div class="mb-3">
+                              <label for="humidity" class="form-label">相對濕度 (%)</label>
+                              <input type="number" class="form-control" id="humidity" step="1" min="0" max="100" value="70" required>
+                              <small class="form-text text-muted">自動獲取的相對濕度數據</small>
+                          </div>
+              
+                          <!-- 風速輸入框 -->
+                          <div class="mb-3">
+                              <label for="windSpeed" class="form-label">風速 (m/s)</label>
+                              <input type="number" class="form-control" id="windSpeed" step="0.1" min="0" max="30" value="2.0" required>
+                              <small class="form-text text-muted">自動獲取的風速數據</small>
+                          </div>
+              
+                          <!-- 氣壓輸入框 -->
+                          <div class="mb-3">
+                              <label for="pressure" class="form-label">氣壓 (hPa)</label>
+                              <input type="number" class="form-control" id="pressure" step="0.1" min="900" max="1100" value="1013.2" required>
+                              <small class="form-text text-muted">自動獲取的氣壓數據</small>
+                          </div>
+              
+                          <!-- 降雨量輸入框 -->
+                          <div class="mb-3">
+                              <label for="rainfall" class="form-label">24小時降雨量 (mm)</label>
+                              <input type="number" class="form-control" id="rainfall" step="0.1" min="0" max="500" value="0" required>
+                              <small class="form-text text-muted">自動獲取的降雨量數據</small>
                           </div>
                       </div>
-                      <div id="location-data" class="mt-3"></div>
-                  </div>
-              </div>
-          </div>
-      </div>
 
-      <!-- 參數設定區域 -->
-      <div class="row" id="parameters">
-          <div class="col-lg-8">
-              <div class="card">
-                  <div class="card-header">
-                      <h5 class="mb-0">
-                          <i class="fas fa-cogs me-2"></i>
-                          灌溉參數設定
-                      </h5>
-                  </div>
-                  <div class="card-body">
-                      <form id="irrigationForm">
-                          <!-- 基本資訊 -->
-                          <div class="row mb-4">
-                              <div class="col-12">
-                                  <h6 class="text-primary border-bottom pb-2">基本資訊</h6>
-                              </div>
-                              <div class="col-md-6">
-                                  <label for="currentDate" class="form-label">計算日期</label>
-                                  <input type="date" class="form-control" id="currentDate" required>
-                              </div>
-                              <div class="col-md-6">
-                                  <label for="farmArea" class="form-label">農場面積 (公頃)</label>
-                                  <input type="number" class="form-control" id="farmArea" step="0.1" min="0.1" placeholder="例：2.5">
-                              </div>
+                      <!-- 土壤參數 -->
+                      <div class="parameter-section">
+                          <h5 class="section-title">
+                              <i class="fas fa-mountain text-brown"></i>
+                              土壤參數
+                          </h5>
+                          
+                          <div class="mb-3">
+                              <label for="soilType" class="form-label">土壤類型</label>
+                              <select class="form-select" id="soilType" required>
+                                  <option value="sandy">砂質土</option>
+                                  <option value="loamy" selected>壤土</option>
+                                  <option value="clay">黏質土</option>
+                                  <option value="organicRich">有機質豐富土壤</option>
+                              </select>
                           </div>
-
-                          <!-- 作物資訊 -->
-                          <div class="row mb-4">
-                              <div class="col-12">
-                                  <h6 class="text-primary border-bottom pb-2">作物資訊</h6>
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="growthStage" class="form-label">生育期</label>
-                                  <select class="form-select" id="growthStage" required>
-                                      <option value="">請選擇生育期</option>
-                                      <option value="flowerBud">花芽分化期</option>
-                                      <option value="flowering">開花期</option>
-                                      <option value="fruitSet">著果期</option>
-                                      <option value="fruitDevelopment">果實發育期</option>
-                                      <option value="fruitMaturation">果實成熟期</option>
-                                      <option value="dormant">休眠期</option>
-                                  </select>
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="plantAge" class="form-label">樹齡 (年)</label>
-                                  <input type="number" class="form-control" id="plantAge" min="1" max="50" placeholder="例：5">
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="canopyCover" class="form-label">冠層覆蓋率 (%)</label>
-                                  <input type="number" class="form-control" id="canopyCover" step="1" min="0" max="100" placeholder="例：75">
-                              </div>
+                          
+                          <div class="mb-3">
+                              <label for="soilDepth" class="form-label">土壤深度 (cm)</label>
+                              <input type="number" class="form-control" id="soilDepth" min="20" max="200" step="5" value="60" required>
                           </div>
-
-                          <!-- 氣象資訊 -->
-                          <div class="row mb-4">
-                              <div class="col-12">
-                                  <h6 class="text-primary border-bottom pb-2">氣象資訊</h6>
-                              </div>
-                              <div class="col-md-3">
-                                  <label for="temperature" class="form-label">平均氣溫 (°C)</label>
-                                  <input type="number" class="form-control" id="temperature" step="0.1" placeholder="例：25.5">
-                              </div>
-                              <div class="col-md-3">
-                                  <label for="humidity" class="form-label">相對濕度 (%)</label>
-                                  <input type="number" class="form-control" id="humidity" step="1" min="0" max="100" placeholder="例：75">
-                              </div>
-                              <div class="col-md-3">
-                                  <label for="windSpeed" class="form-label">風速 (m/s)</label>
-                                  <input type="number" class="form-control" id="windSpeed" step="0.1" min="0" placeholder="例：2.0">
-                              </div>
-                              <div class="col-md-3">
-                                  <label for="rainfall" class="form-label">降雨量 (mm)</label>
-                                  <input type="number" class="form-control" id="rainfall" step="0.1" min="0" placeholder="例：5.2">
-                              </div>
+                          
+                          <div class="mb-3">
+                              <label for="currentMoisture" class="form-label">目前土壤含水量 (%)</label>
+                              <input type="number" class="form-control" id="currentMoisture" min="0" max="100" step="1" value="60" required>
                           </div>
+                      </div>
 
-                          <!-- 太陽輻射 -->
-                          <div class="row mb-4">
-                              <div class="col-12">
-                                  <h6 class="text-primary border-bottom pb-2">輻射資訊</h6>
-                              </div>
-                              <div class="col-md-6">
-                                  <label for="solarRadiation" class="form-label">太陽輻射 (MJ/m²/day)</label>
-                                  <input type="number" class="form-control" id="solarRadiation" step="0.1" min="0" placeholder="例：18.5">
-                              </div>
-                              <div class="col-md-6">
-                                  <label for="sunshineHours" class="form-label">日照時數 (小時)</label>
-                                  <input type="number" class="form-control" id="sunshineHours" step="0.1" min="0" max="24" placeholder="例：8.5">
-                              </div>
+                      <!-- 管理參數 -->
+                      <div class="parameter-section">
+                          <h5 class="section-title">
+                              <i class="fas fa-cogs text-info"></i>
+                              管理參數
+                          </h5>
+                          
+                          <div class="mb-3">
+                              <label for="irrigationSystem" class="form-label">灌溉系統</label>
+                              <select class="form-select" id="irrigationSystem" required>
+                                  <option value="drip" selected>滴灌系統</option>
+                                  <option value="sprinkler">噴灌系統</option>
+                                  <option value="microSprinkler">微噴系統</option>
+                                  <option value="furrow">溝灌系統</option>
+                              </select>
                           </div>
-
-                          <!-- 土壤資訊 -->
-                          <div class="row mb-4">
-                              <div class="col-12">
-                                  <h6 class="text-primary border-bottom pb-2">土壤資訊</h6>
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="soilType" class="form-label">土壤類型</label>
-                                  <select class="form-select" id="soilType" required>
-                                      <option value="">請選擇土壤類型</option>
-                                      <option value="sandy">砂質土</option>
-                                      <option value="loamy">壤土</option>
-                                      <option value="clay">黏質土</option>
-                                      <option value="sandyLoam">砂質壤土</option>
-                                      <option value="clayLoam">黏質壤土</option>
-                                  </select>
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="soilDepth" class="form-label">土壤深度 (cm)</label>
-                                  <input type="number" class="form-control" id="soilDepth" step="1" min="10" placeholder="例：60">
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="organicMatter" class="form-label">有機質含量 (%)</label>
-                                  <input type="number" class="form-control" id="organicMatter" step="0.1" min="0" placeholder="例：2.5">
-                              </div>
+                          
+                          <div class="mb-3">
+                              <label for="plantDensity" class="form-label">種植密度 (株/公頃)</label>
+                              <input type="number" class="form-control" id="plantDensity" min="100" max="1000" step="10" value="400" required>
                           </div>
-
-                          <!-- 灌溉系統 -->
-                          <div class="row mb-4">
-                              <div class="col-12">
-                                  <h6 class="text-primary border-bottom pb-2">灌溉系統</h6>
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="irrigationSystem" class="form-label">灌溉方式</label>
-                                  <select class="form-select" id="irrigationSystem" required>
-                                      <option value="">請選擇灌溉方式</option>
-                                      <option value="drip">滴灌</option>
-                                      <option value="sprinkler">噴灌</option>
-                                      <option value="microSprinkler">微噴灌</option>
-                                      <option value="furrow">溝灌</option>
-                                      <option value="flood">淹灌</option>
-                                  </select>
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="systemEfficiency" class="form-label">系統效率 (%)</label>
-                                  <input type="number" class="form-control" id="systemEfficiency" step="1" min="50" max="100" placeholder="例：85">
-                              </div>
-                              <div class="col-md-4">
-                                  <label for="irrigationInterval" class="form-label">灌溉間隔 (天)</label>
-                                  <input type="number" class="form-control" id="irrigationInterval" step="1" min="1" placeholder="例：3">
-                              </div>
+                          
+                          <div class="mb-3">
+                              <label for="mulching" class="form-label">覆蓋處理</label>
+                              <select class="form-select" id="mulching" required>
+                                  <option value="none">無覆蓋</option>
+                                  <option value="organic" selected>有機覆蓋</option>
+                                  <option value="plastic">塑膠布覆蓋</option>
+                                  <option value="gravel">礫石覆蓋</option>
+                              </select>
                           </div>
+                      </div>
 
-                          <!-- 計算按鈕 -->
+                      <!-- 操作按鈕 -->
+                      <div class="action-buttons">
+                          <button type="button" class="btn btn-primary btn-lg w-100 mb-2" onclick="calculateIrrigation()">
+                              <i class="fas fa-play me-2"></i>開始計算
+                          </button>
                           <div class="row">
-                              <div class="col-12 text-center">
-                                  <button type="button" class="btn btn-success btn-lg" id="calculateBtn">
-                                      <i class="fas fa-calculator me-2"></i>
-                                      開始計算
+                              <div class="col-6">
+                                  <button type="button" class="btn btn-outline-secondary w-100" onclick="resetForm()">
+                                      <i class="fas fa-undo me-1"></i>重置
                                   </button>
-                                  <button type="reset" class="btn btn-outline-secondary btn-lg ms-2">
-                                      <i class="fas fa-undo me-2"></i>
-                                      重置
+                              </div>
+                              <div class="col-6">
+                                  <button type="button" class="btn btn-outline-success w-100" onclick="saveParameters()">
+                                      <i class="fas fa-save me-1"></i>儲存
                                   </button>
                               </div>
                           </div>
-                      </form>
-                  </div>
+                      </div>
+                  </form>
               </div>
           </div>
 
-          <!-- 參數說明側邊欄 -->
-          <div class="col-lg-4">
-              <div class="card">
-                  <div class="card-header">
-                      <h5 class="mb-0">
-                          <i class="fas fa-info-circle me-2"></i>
-                          參數說明
-                      </h5>
-                  </div>
-                  <div class="card-body">
-                      <div id="parameterDescription">
-                          <p class="text-muted">請選擇左側參數以查看詳細說明</p>
-                      </div>
-                  </div>
-              </div>
-
-              <!-- 快速設定 -->
-              <div class="card mt-3">
-                  <div class="card-header">
-                      <h5 class="mb-0">
-                          <i class="fas fa-magic me-2"></i>
-                          快速設定
-                      </h5>
-                  </div>
-                  <div class="card-body">
-                      <div class="d-grid gap-2">
-                          <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadPreset('spring')">
-                              春季設定
-                          </button>
-                          <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadPreset('summer')">
-                              夏季設定
-                          </button>
-                          <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadPreset('autumn')">
-                              秋季設定
-                          </button>
-                          <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadPreset('winter')">
-                              冬季設定
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-
-      <!-- 計算結果區域 -->
-      <div class="row mt-4" id="results" style="display: none;">
-          <div class="col-12">
-              <div class="card">
-                  <div class="card-header">
-                      <h5 class="mb-0">
-                          <i class="fas fa-chart-line me-2"></i>
-                          計算結果
-                      </h5>
-                  </div>
-                  <div class="card-body">
-                      <!-- 主要結果顯示 -->
-                      <div class="row mb-4">
-                          <div class="col-md-3">
-                              <div class="value-display">
-                                  <div class="value-number" id="et0Result">--</div>
-                                  <div class="value-label">參考蒸發散量<br>(mm/day)</div>
+          <!-- 右側結果顯示面板 -->
+          <div class="col-lg-8 col-md-12">
+              <div class="results-panel" id="results">
+                  <!-- 主要結果卡片 -->
+                  <div class="row mb-4">
+                      <div class="col-md-4">
+                          <div class="result-card text-center">
+                              <div class="result-icon">
+                                  <i class="fas fa-tint text-primary"></i>
                               </div>
-                          </div>
-                          <div class="col-md-3">
-                              <div class="value-display">
-                                  <div class="value-number" id="etcResult">--</div>
-                                  <div class="value-label">作物蒸發散量<br>(mm/day)</div>
-                              </div>
-                          </div>
-                          <div class="col-md-3">
-                              <div class="value-display">
-                                  <div class="value-number" id="irrigationNeed">--</div>
-                                  <div class="value-label">灌溉需求量<br>(mm/day)</div>
-                              </div>
-                          </div>
-                          <div class="col-md-3">
-                              <div class="value-display">
-                                  <div class="value-number" id="waterVolume">--</div>
-                                  <div class="value-label">總用水量<br>(公升/天)</div>
-                              </div>
+                              <h3 class="result-value" id="irrigationAmount">-- L/株</h3>
+                              <p class="result-label">建議灌溉量</p>
                           </div>
                       </div>
-
-                      <!-- 詳細結果表格 -->
-                      <div class="row">
-                          <div class="col-lg-8">
-                              <h6>詳細計算結果</h6>
-                              <div class="table-responsive">
-                                  <table class="table table-striped" id="detailedResults">
-                                      <thead>
-                                          <tr>
-                                              <th>項目</th>
-                                              <th>數值</th>
-                                              <th>單位</th>
-                                              <th>說明</th>
-                                          </tr>
-                                      </thead>
-                                      <tbody>
-                                          <!-- 動態生成 -->
-                                      </tbody>
-                                  </table>
+                      <div class="col-md-4">
+                          <div class="result-card text-center">
+                              <div class="result-icon">
+                                  <i class="fas fa-clock text-success"></i>
                               </div>
-                          </div>
-                          <div class="col-lg-4">
-                              <h6>計算步驟</h6>
-                              <div id="calculationSteps" class="calculation-steps">
-                                  <!-- 動態生成 -->
-                              </div>
+                              <h3 class="result-value" id="irrigationTime">-- 分鐘</h3>
+                              <p class="result-label">灌溉時間</p>
                           </div>
                       </div>
-
-                      <!-- 圖表顯示 -->
-                      <div class="row mt-4">
-                          <div class="col-12">
-                              <h6>趨勢圖表</h6>
-                              <canvas id="resultChart" width="400" height="200"></canvas>
+                      <div class="col-md-4">
+                          <div class="result-card text-center">
+                              <div class="result-icon">
+                                  <i class="fas fa-calendar-check text-warning"></i>
+                              </div>
+                              <h3 class="result-value" id="nextIrrigation">-- 天後</h3>
+                              <p class="result-label">下次灌溉</p>
                           </div>
                       </div>
+                  </div>
 
-                      <!-- 管理建議 -->
-                      <div class="row mt-4">
-                          <div class="col-12">
-                              <div class="alert alert-info">
-                                  <h6 class="alert-heading">
-                                      <i class="fas fa-lightbulb me-2"></i>
-                                      管理建議
-                                  </h6>
-                                  <div id="managementAdvice">
-                                      <!-- 動態生成建議 -->
+                  <!-- 詳細分析標籤頁 -->
+                  <div class="analysis-tabs">
+                      <ul class="nav nav-tabs" id="analysisTab" role="tablist">
+                          <li class="nav-item" role="presentation">
+                              <button class="nav-link active" id="steps-tab" data-bs-toggle="tab" data-bs-target="#steps" type="button">
+                                  <i class="fas fa-list-ol me-1"></i>計算步驟
+                              </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart" type="button">
+                                  <i class="fas fa-chart-bar me-1"></i>水分平衡
+                              </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="advice-tab" data-bs-toggle="tab" data-bs-target="#advice" type="button">
+                                  <i class="fas fa-lightbulb me-1"></i>管理建議
+                              </button>
+                          </li>
+                      </ul>
+                      
+                      <div class="tab-content" id="analysisTabContent">
+                          <!-- 計算步驟 -->
+                          <div class="tab-pane fade show active" id="steps" role="tabpanel">
+                              <div class="calculation-steps-container">
+                                  <div id="calculationSteps">
+                                      <div class="alert alert-info">
+                                          <i class="fas fa-info-circle"></i>
+                                          請設定參數並點擊「開始計算」來查看詳細計算步驟
+                                      </div>
                                   </div>
                               </div>
                           </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-
-      <!-- 關於系統 -->
-      <div class="row mt-4" id="about">
-          <div class="col-12">
-              <div class="card">
-                  <div class="card-header">
-                      <h5 class="mb-0">
-                          <i class="fas fa-info me-2"></i>
-                          關於系統
-                      </h5>
-                  </div>
-                  <div class="card-body">
-                      <div class="row">
-                          <div class="col-md-8">
-                              <h6>系統特色</h6>
-                              <ul>
-                                  <li>基於FAO-56 Penman-Monteith公式進行精確計算</li>
-                                  <li>針對柑橘作物特性進行參數優化</li>
-                                  <li>考慮台灣氣候條件與土壤特性</li>
-                                  <li>提供智能化灌溉管理建議</li>
-                                  <li>支援多種灌溉系統類型</li>
-                              </ul>
-                              
-                              <h6 class="mt-3">技術規格</h6>
-                              <ul>
-                                  <li>計算精度：±5%</li>
-                                  <li>適用範圍：台灣地區柑橘園</li>
-                                  <li>更新頻率：即時計算</li>
-                                  <li>數據來源：中央氣象局、農委會</li>
-                              </ul>
+                          
+                          <!-- 水分平衡圖表 -->
+                          <div class="tab-pane fade" id="chart" role="tabpanel">
+                              <div class="chart-container">
+                                  <div id="waterBalanceChart">
+                                      <div class="chart-placeholder">
+                                          <i class="fas fa-chart-line fa-3x text-muted"></i>
+                                          <p class="text-muted mt-2">計算完成後將顯示水分平衡圖表</p>
+                                      </div>
+                                  </div>
+                              </div>
                           </div>
-                          <div class="col-md-4">
-                              <h6>開發資訊</h6>
-                              <p><strong>開發者：</strong>林鈺荏</p>
-                              <p><strong>機構：</strong>苗栗區農業改良場</p>
-                              <p><strong>版本：</strong>v2.0</p>
-                              <p><strong>更新日期：</strong>2024-12-19</p>
-                              
-                              <h6 class="mt-3">聯絡資訊</h6>
-                              <p><i class="fas fa-envelope me-2"></i>email@example.com</p>
-                              <p><i class="fas fa-phone me-2"></i>(037) 222-111</p>
+                          
+                          <!-- 管理建議 -->
+                          <div class="tab-pane fade" id="advice" role="tabpanel">
+                              <div class="management-advice-container">
+                                  <div id="managementAdvice">
+                                      <div class="alert alert-warning">
+                                          <i class="fas fa-exclamation-triangle"></i>
+                                          管理建議將在計算完成後顯示
+                                      </div>
+                                  </div>
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -471,144 +363,109 @@
       <div class="container">
           <div class="row">
               <div class="col-md-6">
-                  <h6>柑橘園智能灌溉計算系統</h6>
-                  <p class="mb-0">© 2024 苗栗區農業改良場 版權所有</p>
+                  <h5><i class="fas fa-seedling me-2"></i>柑橘園智能灌溉系統</h5>
+                  <p class="mb-2">基於 FAO-56 標準的專業灌溉計算工具</p>
+                  <p class="small text-muted">版本 1.0.0 | 更新日期: 2024-12-19</p>
+              </div>
+              <div class="col-md-6">
+                  <h6>開發資訊</h6>
+                  <p class="mb-1"><strong>開發者:</strong> 林鈺荏</p>
+                  <p class="mb-1"><strong>機構:</strong> 苗栗區農業改良場</p>
+                  <p class="mb-1"><strong>職位:</strong> 助理研究員</p>
+                  <p class="small text-muted">專長: 作物土壤肥料管理研究</p>
+              </div>
+          </div>
+          <hr class="my-3">
+          <div class="row align-items-center">
+              <div class="col-md-6">
+                  <p class="mb-0">&copy; 2024 苗栗區農業改良場. 保留所有權利.</p>
               </div>
               <div class="col-md-6 text-md-end">
-                  <p class="mb-0">開發者：林鈺荏 | 基於FAO-56標準</p>
+                  <a href="docs/README.md" class="text-light me-3" target="_blank">
+                      <i class="fas fa-book"></i> 使用說明
+                  </a>
+                  <a href="docs/calculation-guide.md" class="text-light" target="_blank">
+                      <i class="fas fa-calculator"></i> 計算指南
+                  </a>
               </div>
           </div>
       </div>
   </footer>
 
+  <!-- JavaScript 檔案載入 (修正順序) -->
   <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
-  <!-- JavaScript 模組 - 修正載入順序 -->
-  <script src="js/utils.js"></script>
+  <!-- 系統 JavaScript 檔案 (按載入順序) -->
+  <script src="js/location.js"></script>  <!-- 首先載入位置服務 -->
   <script src="js/parameters.js"></script>
+  <script src="js/utils.js"></script>
   <script src="js/calculator.js"></script>
   <script src="js/ui-handler.js"></script>
-  <script src="js/location.js"></script>
   
   <!-- 初始化腳本 -->
   <script>
+      // 頁面載入完成後初始化
       document.addEventListener('DOMContentLoaded', function() {
-          console.log('系統初始化開始...');
+          console.log('柑橘園智能灌溉計算系統啟動中...');
+          
+          // 設定當前日期
+          const currentDateInput = document.getElementById('currentDate');
+          if (currentDateInput) {
+              const today = new Date().toISOString().split('T')[0];
+              currentDateInput.value = today;
+          }
           
           // 初始化表單
           if (typeof initializeForm === 'function') {
               initializeForm();
           }
           
-          // 綁定計算按鈕事件
-          const calculateBtn = document.getElementById('calculateBtn');
-          if (calculateBtn) {
-              calculateBtn.addEventListener('click', function() {
-                  performCalculation();
-              });
-          }
-          
-          // 綁定自動定位按鈕
-          const autoLocateBtn = document.getElementById('autoLocateBtn');
-          if (autoLocateBtn) {
-              autoLocateBtn.addEventListener('click', function() {
-                  if (typeof getCurrentLocation === 'function') {
-                      getCurrentLocation();
-                  }
-              });
-          }
+          // 載入氣候資料
+          loadClimateData();
           
           console.log('系統初始化完成');
       });
-      
-      // 執行計算的主函數
-      function performCalculation() {
-          const loadingOverlay = document.getElementById('loadingOverlay');
-          const resultsSection = document.getElementById('results');
-          
+
+      // 載入氣候資料
+      async function loadClimateData() {
           try {
-              // 顯示載入畫面
-              if (loadingOverlay) {
-                  loadingOverlay.style.display = 'flex';
-              }
-              
-              // 收集表單數據
-              const formData = collectFormData();
-              
-              // 執行計算
-              if (typeof CitrusIrrigationCalculator !== 'undefined') {
-                  const calculator = new CitrusIrrigationCalculator();
-                  const results = calculator.calculate(formData);
-                  
-                  // 顯示結果
-                  displayResults(results);
-                  
-                  // 顯示結果區域
-                  if (resultsSection) {
-                      resultsSection.style.display = 'block';
-                      resultsSection.scrollIntoView({ behavior: 'smooth' });
-                  }
-              } else {
-                  throw new Error('計算模組未載入');
-              }
-              
+              const response = await fetch('data/climate-data.json');
+              const climateData = await response.json();
+              window.climateData = climateData;
+              console.log('氣候資料載入成功');
           } catch (error) {
-              console.error('計算錯誤:', error);
-              alert('計算過程中發生錯誤，請檢查輸入參數');
-          } finally {
-              // 隱藏載入畫面
-              if (loadingOverlay) {
-                  loadingOverlay.style.display = 'none';
-              }
+              console.warn('氣候資料載入失敗:', error);
+              // 使用預設值繼續運行
           }
       }
-      
-      // 收集表單數據
-      function collectFormData() {
-          const formElements = document.querySelectorAll('#irrigationForm input, #irrigationForm select');
-          const data = {};
-          
-          formElements.forEach(element => {
-              if (element.value !== '') {
-                  data[element.id] = element.type === 'number' ? parseFloat(element.value) : element.value;
-              }
-          });
-          
-          return data;
+
+      // 顯示錯誤訊息
+      function showErrorMessage(message) {
+          console.error('錯誤:', message);
+          // 可以在這裡添加 UI 錯誤顯示邏輯
       }
-      
-      // 顯示計算結果
-      function displayResults(results) {
-          // 更新主要結果顯示
-          const et0Element = document.getElementById('et0Result');
-          const etcElement = document.getElementById('etcResult');
-          const irrigationElement = document.getElementById('irrigationNeed');
-          const volumeElement = document.getElementById('waterVolume');
-          
-          if (et0Element) et0Element.textContent = results.et0?.toFixed(2) || '--';
-          if (etcElement) etcElement.textContent = results.etc?.toFixed(2) || '--';
-          if (irrigationElement) irrigationElement.textContent = results.irrigationNeed?.toFixed(2) || '--';
-          if (volumeElement) volumeElement.textContent = results.totalWaterVolume?.toFixed(0) || '--';
-          
-          // 更新詳細結果表格
-          updateDetailedResults(results);
-          
-          // 更新計算步驟
-          updateCalculationSteps(results.calculationSteps || []);
-          
-          // 更新管理建議
-          updateManagementAdvice(results);
+
+      // 顯示成功訊息
+      function showSuccessMessage(message) {
+          console.log('成功:', message);
+          // 可以在這裡添加 UI 成功顯示邏輯
       }
-      
-      // 更新詳細結果表格
-      function updateDetailedResults(results) {
-          const tbody = document.querySelector('#detailedResults tbody');
-          if (!tbody) return;
-          
-          tbody.innerHTML = '';
-          
-          const resultItems = [
-              { name: '參考蒸發散量', value: results.et0, unit: 'mm/day', desc: '基於氣象條件計算' },
-              { name: '作物係數', value: results.cropCoefficient, unit: '-', desc: '依生育期調整' },
-              { name: '作物蒸發散量', value: results.etc, unit: 'mm/day', desc: 'ET0 
+
+      // 錯誤處理
+      window.addEventListener('error', function(event) {
+          console.error('系統錯誤:', event.error);
+          showErrorMessage('系統發生錯誤，請重新整理頁面');
+      });
+
+      // 離線檢測
+      window.addEventListener('online', function() {
+          showSuccessMessage('網路連線已恢復');
+      });
+
+      window.addEventListener('offline', function() {
+          showErrorMessage('網路連線中斷，系統將以離線模式運行');
+      });
+  </script>
+</body>
+</html>
