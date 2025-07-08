@@ -1,4 +1,103 @@
-// location.js - 完全修正版本（整合自動氣象站資料）
+// location.js - 完全修正版本（整合農業部自動氣象站資料）
+
+// === 設定區域 ===
+const CONFIG = {
+  // 模擬功能設定
+  SIMULATION_MODE: {
+    enabled: false,           // true: 強制使用模擬資料, false: 優先使用真實API
+    fallbackEnabled: true,   // true: API失敗時使用模擬資料, false: API失敗時直接報錯
+    logMode: true            // true: 顯示模擬資料來源訊息, false: 靜默模式
+  },
+  
+  // 農業部API設定
+  AGRI_API: {
+    baseURL: 'https://data.moa.gov.tw/Service/OpenData/FromM/AutoWeatherStationType.aspx',
+    apiKey: 'YOUR_AGRI_API_KEY', // 請替換為您的農業部API金鑰
+    timeout: 10000,
+    retryCount: 3,              // API失敗重試次數
+    retryDelay: 2000           // 重試間隔(毫秒)
+  },
+  
+  // 目標位置設定
+  TARGET_LOCATION: {
+    lat: 24.5593,
+    lng: 120.8214,
+    name: '苗栗區農業改良場',
+    city: '苗栗縣',
+    town: '公館鄉'
+  }
+};
+
+// === 模擬資料管理 ===
+class SimulationManager {
+  static generateMockAgriData() {
+    const mockStations = [
+      {
+        Station_name: '苗栗農改場',
+        Station_ID: 'ML001',
+        Station_Latitude: 24.5593,
+        Station_Longitude: 120.8214,
+        CITY: '苗栗縣',
+        TOWN: '公館鄉',
+        TEMP: 25.3 + (Math.random() - 0.5) * 2, // 添加隨機變化
+        HUMD: 78.5 + (Math.random() - 0.5) * 10,
+        WDSD: 2.1 + (Math.random() - 0.5) * 1,
+        WDIR: 135 + Math.floor((Math.random() - 0.5) * 60),
+        PRES: 1013.2 + (Math.random() - 0.5) * 5,
+        H_24R: Math.random() * 5,
+        SUN: Math.floor(Math.random() * 10),
+        TIME: new Date().toISOString(),
+        ELEV: 85
+      },
+      {
+        Station_name: '頭屋測站',
+        Station_ID: 'ML002',
+        Station_Latitude: 24.5789,
+        Station_Longitude: 120.8456,
+        CITY: '苗栗縣',
+        TOWN: '頭屋鄉',
+        TEMP: 24.8 + (Math.random() - 0.5) * 2,
+        HUMD: 82.1 + (Math.random() - 0.5) * 8,
+        WDSD: 1.8 + (Math.random() - 0.5) * 1,
+        WDIR: 180 + Math.floor((Math.random() - 0.5) * 40),
+        PRES: 1012.8 + (Math.random() - 0.5) * 4,
+        H_24R: Math.random() * 8,
+        SUN: Math.floor(Math.random() * 8),
+        TIME: new Date().toISOString(),
+        ELEV: 92
+      },
+      {
+        Station_name: '銅鑼測站',
+        Station_ID: 'ML003',
+        Station_Latitude: 24.4892,
+        Station_Longitude: 120.7834,
+        CITY: '苗栗縣',
+        TOWN: '銅鑼鄉',
+        TEMP: 26.1 + (Math.random() - 0.5) * 2,
+        HUMD: 75.3 + (Math.random() - 0.5) * 12,
+        WDSD: 2.5 + (Math.random() - 0.5) * 1.5,
+        WDIR: 90 + Math.floor((Math.random() - 0.5) * 80),
+        PRES: 1014.1 + (Math.random() - 0.5) * 6,
+        H_24R: Math.random() * 3,
+        SUN: Math.floor(Math.random() * 12),
+        TIME: new Date().toISOString(),
+        ELEV: 78
+      }
+    ];
+    
+    if (CONFIG.SIMULATION_MODE.logMode) {
+      debugLog('🎭 使用模擬農業氣象站資料');
+    }
+    
+    return mockStations;
+  }
+  
+  static logSimulationUsage(reason) {
+    if (CONFIG.SIMULATION_MODE.logMode) {
+      debugLog(`🎭 切換到模擬模式: ${reason}`);
+    }
+  }
+}
 
 // 調試日誌函數
 function debugLog(message, data = null) {
@@ -167,93 +266,88 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-// 獲取自動氣象站資料
-function getAutoWeatherStationData(latitude, longitude) {
-    const apikey = 'CWA-D32F5AAF-8CB1-49C5-A651-8AD504393777';
-    const autoStationUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001?Authorization=${apikey}&format=JSON`;
-    
-    debugLog('🌡️ 正在獲取自動氣象站資料...');
-    
-    return fetch(autoStationUrl)
-        .then(response => {
-            debugLog('📡 自動氣象站API回應狀態:', response.status);
-            if (!response.ok) {
-                throw new Error(`自動氣象站API HTTP錯誤 ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            debugLog('✅ 自動氣象站API回應成功');
-            
-            if (!data.records || !data.records.Station) {
-                throw new Error('自動氣象站資料結構異常');
-            }
-            
-            const stations = data.records.Station;
-            let nearestStation = null;
-            let minDistance = Infinity;
-            
-            // 找到最近的氣象站
-            stations.forEach(station => {
-                if (station.GeoInfo && station.GeoInfo.Coordinates && station.GeoInfo.Coordinates.length > 0) {
-                    const stationLat = parseFloat(station.GeoInfo.Coordinates[0].StationLatitude);
-                    const stationLon = parseFloat(station.GeoInfo.Coordinates[0].StationLongitude);
-                    
-                    if (!isNaN(stationLat) && !isNaN(stationLon)) {
-                        const distance = calculateDistance(latitude, longitude, stationLat, stationLon);
-                        
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestStation = station;
-                        }
-                    }
-                }
-            });
-            
-            if (nearestStation) {
-                debugLog(`🎯 找到最近的氣象站: ${nearestStation.StationName}，距離: ${minDistance.toFixed(2)} km`);
-                return {
-                    station: nearestStation,
-                    distance: minDistance
-                };
-            } else {
-                throw new Error('找不到附近的自動氣象站');
-            }
+// 農業部氣象站API處理類
+class AgriWeatherAPI {
+  static async fetchWithRetry(url, options = {}, retries = CONFIG.AGRI_API.retryCount) {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        debugLog(`🌐 嘗試第 ${i + 1} 次 API 請求`);
+        
+        const response = await fetch(url, {
+          ...options,
+          timeout: CONFIG.AGRI_API.timeout
         });
-}
-
-// 解析自動氣象站數據
-function parseAutoStationData(stationData) {
-    const station = stationData.station;
-    const weather = station.WeatherElement;
-    
-    // 安全地獲取數值，處理 "-99" 無效值
-    function safeGetValue(value, defaultValue = '無資料') {
-        if (value === null || value === undefined || value === '-99' || value === -99) {
-            return defaultValue;
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        return value;
+        
+        return await response.json();
+        
+      } catch (error) {
+        debugLog(`❌ API 請求失敗 (第 ${i + 1} 次):`, error.message);
+        
+        if (i === retries) {
+          throw error;
+        }
+        
+        if (i < retries) {
+          debugLog(`⏳ ${CONFIG.AGRI_API.retryDelay}ms 後重試...`);
+          await new Promise(resolve => setTimeout(resolve, CONFIG.AGRI_API.retryDelay));
+        }
+      }
+    }
+  }
+  
+  static async getWeatherStations(latitude, longitude) {
+    // 檢查是否強制使用模擬模式
+    if (CONFIG.SIMULATION_MODE.enabled) {
+      SimulationManager.logSimulationUsage('強制模擬模式已啟用');
+      return SimulationManager.generateMockAgriData();
     }
     
-    const result = {
-        stationName: station.StationName || '未知站點',
-        stationId: station.StationId || '',
-        county: station.GeoInfo?.CountyName || '',
-        town: station.GeoInfo?.TownName || '',
-        altitude: safeGetValue(station.GeoInfo?.StationAltitude, '0') + 'm',
-        obsTime: station.ObsTime?.DateTime || '',
-        temperature: safeGetValue(weather?.AirTemperature, null),
-        humidity: safeGetValue(weather?.RelativeHumidity, null),
-        pressure: safeGetValue(weather?.AirPressure, null),
-        windSpeed: safeGetValue(weather?.WindSpeed, null),
-        windDirection: safeGetValue(weather?.WindDirection, null),
-        precipitation: safeGetValue(weather?.Now?.Precipitation, null),
-        weatherDesc: safeGetValue(weather?.Weather, ''),
-        distance: stationData.distance
-    };
-    
-    debugLog('📊 解析的氣象站資料:', result);
-    return result;
+    try {
+      debugLog('🌾 開始獲取農業部自動氣象站資料...');
+      
+      const apiUrl = CONFIG.AGRI_API.baseURL;
+      if (CONFIG.AGRI_API.apiKey && CONFIG.AGRI_API.apiKey !== 'YOUR_AGRI_API_KEY') {
+        apiUrl += `?apikey=${CONFIG.AGRI_API.apiKey}`;
+      }
+      
+      const data = await this.fetchWithRetry(apiUrl);
+      
+      if (!data || !Array.isArray(data)) {
+        throw new Error('農業部API回應格式異常');
+      }
+      
+      debugLog(`✅ 成功獲取 ${data.length} 個氣象站資料`);
+      
+      // 計算距離並排序
+      const stationsWithDistance = data.map(station => ({
+        ...station,
+        distance: calculateDistance(
+          latitude, longitude,
+          parseFloat(station.Station_Latitude),
+          parseFloat(station.Station_Longitude)
+        )
+      })).sort((a, b) => a.distance - b.distance);
+      
+      debugLog(`🎯 找到最近的氣象站: ${stationsWithDistance[0].Station_name} (距離: ${stationsWithDistance[0].distance.toFixed(2)}km)`);
+      
+      return stationsWithDistance;
+      
+    } catch (error) {
+      debugLog('❌ 農業部API請求失敗:', error.message);
+      
+      // 檢查是否啟用備用模擬功能
+      if (CONFIG.SIMULATION_MODE.fallbackEnabled) {
+        SimulationManager.logSimulationUsage(`API失敗，啟用備用模擬: ${error.message}`);
+        return SimulationManager.generateMockAgriData();
+      } else {
+        throw error;
+      }
+    }
+  }
 }
 
 // 當文件載入完成後執行
@@ -324,19 +418,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// 主要API函數（整合自動氣象站）
+// 主要API函數 - 使用農業部自動氣象站API
 function activateAPIs(latitude, longitude) {
-    const cityList = {
-        宜蘭縣: 'F-D0047-003', 桃園市: 'F-D0047-007', 新竹縣: 'F-D0047-011', 苗栗縣: 'F-D0047-015',
-        彰化縣: 'F-D0047-019', 南投縣: 'F-D0047-023', 雲林縣: 'F-D0047-027', 嘉義縣: 'F-D0047-031',
-        屏東縣: 'F-D0047-035', 臺東縣: 'F-D0047-039', 花蓮縣: 'F-D0047-043', 澎湖縣: 'F-D0047-047',
-        基隆市: 'F-D0047-051', 新竹市: 'F-D0047-055', 嘉義市: 'F-D0047-059', 臺北市: 'F-D0047-063',
-        高雄市: 'F-D0047-067', 新北市: 'F-D0047-071', 臺中市: 'F-D0047-075', 臺南市: 'F-D0047-079',
-        連江縣: 'F-D0047-083', 金門縣: 'F-D0047-087'
-    };
-    const apikey = 'CWA-D32F5AAF-8CB1-49C5-A651-8AD504393777';
-    const format = 'JSON';
-    
     const locationApiUrl = `https://api.nlsc.gov.tw/other/TownVillagePointQuery/${longitude}/${latitude}/4326`;
     
     debugLog('🌍 查詢行政區:', locationApiUrl);
@@ -364,199 +447,182 @@ function activateAPIs(latitude, longitude) {
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">載入中...</span>
             </div>
-            <p class="mt-2">正在查詢行政區資料和自動氣象站...</p>
+            <p class="mt-2">正在查詢行政區資料...</p>
         </div>
     `;
 
-    // 同時獲取行政區資料和自動氣象站資料
-    Promise.all([
-        fetch(locationApiUrl).then(response => {
+    // 使用 fetch 獲取行政區資料
+    fetch(locationApiUrl)
+        .then(response => {
+            debugLog('📡 API回應狀態:', response.status);
+            debugLog('📋 API回應標頭:', Object.fromEntries(response.headers.entries()));
+            
             if (!response.ok) {
-                throw new Error(`行政區API HTTP錯誤 ${response.status}`);
+                throw new Error(`HTTP錯誤 ${response.status}`);
             }
+            
             return response.text();
-        }),
-        getAutoWeatherStationData(latitude, longitude)
-    ])
-    .then(([locationResponse, autoStationData]) => {
-        debugLog('📥 同時收到行政區和氣象站資料');
-        
-        // 解析行政區資料
-        const locationData = parseLocationXML(locationResponse);
-        debugLog('🎉 行政區資料解析成功:', locationData);
-        
-        // 解析自動氣象站資料
-        const stationInfo = parseAutoStationData(autoStationData);
-        debugLog('🌡️ 氣象站資料解析成功:', stationInfo);
-        
-        if (locationData && locationData.ctyName && locationData.townName) {
-            const ctyName = locationData.ctyName;
-            const townName = locationData.townName;
+        })
+        .then((responseText) => {
+            debugLog('📥 收到API回應，長度:', responseText.length);
+            debugLog('📝 回應內容前150字符:', responseText.substring(0, 150));
             
-            debugLog(`🏛️ 解析出行政區: ${ctyName} ${townName}`);
-            
-            const dataid = cityList[ctyName];
-            if (dataid) {
-                const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=${format}&LocationName=${townName}`;
-                debugLog('🌤️ 氣象API URL:', weatherApiUrl);
-                getWeatherApi(weatherApiUrl, townName, ctyName, stationInfo);
+            if (responseText.trim().startsWith('<?xml') || responseText.includes('<')) {
+                debugLog('✅ 確認為XML格式，開始解析');
+                return parseLocationXML(responseText);
             } else {
-                // 即使沒有預報資料，也顯示自動氣象站資料
-                displayWeatherInfo(null, townName, ctyName, stationInfo);
+                debugLog('❌ 回應格式異常:', responseText.substring(0, 100));
+                throw new Error('API回應格式不是XML');
             }
-        } else {
-            throw new Error('行政區資料不完整');
-        }
-    })
-    .catch((error) => {
-        debugLog('❌ 資料查詢失敗:', error.message);
+        })
+        .then((locationData) => {
+            debugLog('🎉 行政區資料解析成功:', locationData);
+            
+            if (locationData && locationData.ctyName && locationData.townName) {
+                const ctyName = locationData.ctyName;
+                const townName = locationData.townName;
+                
+                debugLog(`🏛️ 解析出行政區: ${ctyName} ${townName}`);
+                
+                // 使用農業部自動氣象站API
+                getAgriWeatherData(latitude, longitude, townName, ctyName);
+            } else {
+                throw new Error('行政區資料不完整');
+            }
+        })
+        .catch((error) => {
+            debugLog('❌ 行政區查詢失敗:', error.message);
+            weatherInfoElement.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> 行政區查詢失敗</h6>
+                    <p><strong>錯誤：</strong>${error.message}</p>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
+                        <i class="fas fa-redo"></i> 重試
+                    </button>
+                </div>
+            `;
+        });
+
+    async function getAgriWeatherData(latitude, longitude, townName, ctyName) {
+        debugLog(`🌾 正在獲取 ${ctyName} ${townName} 的農業氣象資料...`);
+        
         weatherInfoElement.innerHTML = `
-            <div class="alert alert-danger">
-                <h6><i class="fas fa-exclamation-triangle"></i> 氣象資料查詢失敗</h6>
-                <p><strong>錯誤：</strong>${error.message}</p>
-                <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
-                    <i class="fas fa-redo"></i> 重試
-                </button>
-            </div>
-        `;
-    });
-
-    function getWeatherApi(apiUrl, townName, ctyName, stationInfo) {
-        debugLog(`🌦️ 正在獲取 ${ctyName} ${townName} 的氣象預報資料...`);
-        
-        fetch(apiUrl)
-            .then(response => {
-                debugLog('🌡️ 氣象預報API回應狀態:', response.status);
-                if (!response.ok) {
-                    throw new Error(`氣象預報API HTTP錯誤 ${response.status}`);
-                }
-                return response.json();
-            })
-            .then((weatherData) => {
-                debugLog('✅ 氣象預報API回應成功:', weatherData);
-                displayWeatherInfo(weatherData, townName, ctyName, stationInfo);
-            })
-            .catch((error) => {
-                debugLog('❌ 氣象預報資料獲取失敗，僅顯示自動氣象站資料:', error.message);
-                displayWeatherInfo(null, townName, ctyName, stationInfo);
-            });
-    }
-
-    function displayWeatherInfo(weatherData, townName, ctyName, stationInfo) {
-        let weatherInfoHtml = `<div class="row">`;
-        
-        // 自動氣象站資料（左側）
-        weatherInfoHtml += `
-            <div class="col-md-6">
-                <div class="alert alert-info">
-                    <h5><i class="fas fa-thermometer-half"></i> 即時觀測資料</h5>
-                    <p><strong>觀測站：</strong>${stationInfo.stationName} (${stationInfo.stationId})</p>
-                    <p><strong>位置：</strong>${stationInfo.county} ${stationInfo.town}</p>
-                    <p><strong>距離：</strong>${stationInfo.distance.toFixed(2)} 公里</p>
-                    <p><strong>海拔：</strong>${stationInfo.altitude}</p>
-                    <p><strong>觀測時間：</strong>${new Date(stationInfo.obsTime).toLocaleString('zh-TW')}</p>
-                    <hr>
-                    <div class="row">
-                        <div class="col-6">
-                            <p><strong>溫度：</strong>${stationInfo.temperature !== null ? stationInfo.temperature + ' °C' : '無資料'}</p>
-                            <p><strong>濕度：</strong>${stationInfo.humidity !== null ? stationInfo.humidity + ' %' : '無資料'}</p>
-                            <p><strong>氣壓：</strong>${stationInfo.pressure !== null ? stationInfo.pressure + ' hPa' : '無資料'}</p>
-                        </div>
-                        <div class="col-6">
-                            <p><strong>風速：</strong>${stationInfo.windSpeed !== null ? stationInfo.windSpeed + ' m/s' : '無資料'}</p>
-                            <p><strong>風向：</strong>${stationInfo.windDirection !== null ? stationInfo.windDirection + '°' : '無資料'}</p>
-                            <p><strong>降雨：</strong>${stationInfo.precipitation !== null ? stationInfo.precipitation + ' mm' : '無資料'}</p>
-                        </div>
-                    </div>
-                    ${stationInfo.weatherDesc ? `<p><strong>天氣：</strong>${stationInfo.weatherDesc}</p>` : ''}
+            <div class="text-center">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">載入中...</span>
                 </div>
+                <p class="mt-2">正在獲取 ${ctyName} ${townName} 農業氣象資料...</p>
             </div>
         `;
         
-        // 氣象預報資料（右側）
-        if (weatherData && weatherData.records && weatherData.records.Locations && 
-            weatherData.records.Locations[0] && weatherData.records.Locations[0].Location && 
-            weatherData.records.Locations[0].Location[0] && weatherData.records.Locations[0].Location[0].WeatherElement) {
+        try {
+            const stations = await AgriWeatherAPI.getWeatherStations(latitude, longitude);
             
-            const weatherElement = weatherData.records.Locations[0].Location[0].WeatherElement;
-            const startTime = new Date(weatherElement[0].Time[0].StartTime);
-            const endTime = new Date(weatherElement[0].Time[0].EndTime);
-            const dateRange = `${startTime.getMonth() + 1}月${startTime.getDate()}日 ${startTime.getHours()}點 ～ ${endTime.getMonth() + 1}月${endTime.getDate()}日 ${endTime.getHours()}點`;
-
-            const description = weatherElement[14].Time[0].ElementValue[0].WeatherDescription;
-            const avgTemp = weatherElement[0].Time[0].ElementValue[0].Temperature;
-            const maxCI = weatherElement[7].Time[0].ElementValue[0].MaxComfortIndex;
-            const minCI = weatherElement[8].Time[0].ElementValue[0].MinComfortIndex;
-            const windSpeed = weatherElement[9].Time[0].ElementValue[0].WindSpeed;
-            const rainProb = weatherElement[11].Time[0].ElementValue[0].ProbabilityOfPrecipitation;
-
-            weatherInfoHtml += `
-                <div class="col-md-6">
-                    <div class="alert alert-success">
-                        <h5><i class="fas fa-cloud-sun"></i> ${ctyName} ${townName} 氣象預報</h5>
-                        <p><strong>預報時段：</strong>${dateRange}</p>
-                        <p><strong>天氣描述：</strong>${description}</p>
-                        <p><strong>平均溫度：</strong>${avgTemp} °C</p>
-                        <p><strong>舒適度指數：</strong> ${minCI} ～ ${maxCI}</p>
-                        <p><strong>風速：</strong>${windSpeed} m/s</p>
-                        <p><strong>12小時降雨機率：</strong>${rainProb} %</p>
-                    </div>
-                </div>
-            `;
-
-            // 更新表單中的氣象參數（優先使用即時觀測資料）
-            const tempToUse = stationInfo.temperature !== null ? stationInfo.temperature : avgTemp;
-            const windToUse = stationInfo.windSpeed !== null ? stationInfo.windSpeed : windSpeed;
-            updateWeatherInputs(tempToUse, windToUse, townName, ctyName, maxCI, minCI, rainProb);
-            
-        } else {
-            weatherInfoHtml += `
-                <div class="col-md-6">
-                    <div class="alert alert-warning">
-                        <h5><i class="fas fa-exclamation-triangle"></i> 預報資料</h5>
-                        <p>無法獲取 ${ctyName} ${townName} 的氣象預報資料</p>
-                        <p>僅提供即時觀測資料</p>
-                    </div>
-                </div>
-            `;
-
-            // 僅使用觀測資料更新表單
-            if (stationInfo.temperature !== null && stationInfo.windSpeed !== null) {
-                updateWeatherInputs(stationInfo.temperature, stationInfo.windSpeed, townName, ctyName, '', '', '');
+            if (!stations || stations.length === 0) {
+                throw new Error('找不到附近的農業氣象站');
             }
+            
+            // 選擇最近的氣象站
+            const nearestStation = stations[0];
+            debugLog('✅ 農業氣象API回應成功:', nearestStation);
+            
+            // 格式化時間
+            const updateTime = new Date(nearestStation.TIME);
+            const timeString = updateTime.toLocaleString('zh-TW');
+            
+            // 更新表單中的氣象參數
+            updateWeatherInputs(
+                nearestStation.TEMP, 
+                nearestStation.WDSD, 
+                townName, 
+                ctyName, 
+                nearestStation.HUMD,
+                nearestStation.PRES,
+                nearestStation.H_24R || 0
+            );
+
+            const weatherInfoHtml = `
+                <div class="alert alert-success">
+                    <h3><i class="fas fa-check-circle"></i> ${ctyName} ${townName} 農業氣象資料</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>🌡️ 溫度：</strong>${nearestStation.TEMP}°C</p>
+                            <p><strong>💧 濕度：</strong>${nearestStation.HUMD}%</p>
+                            <p><strong>💨 風速：</strong>${nearestStation.WDSD} m/s</p>
+                            <p><strong>🧭 風向：</strong>${nearestStation.WDIR}°</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>📊 氣壓：</strong>${nearestStation.PRES} hPa</p>
+                            <p><strong>🌧️ 24小時雨量：</strong>${nearestStation.H_24R || 0} mm</p>
+                            <p><strong>☀️ 日照時數：</strong>${nearestStation.SUN || 0} 小時</p>
+                            <p><strong>📍 測站：</strong>${nearestStation.Station_name}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <p><strong>⏰ 更新時間：</strong>${timeString}</p>
+                    <p><strong>📏 距離：</strong>${nearestStation.distance ? nearestStation.distance.toFixed(2) + ' km' : '計算中'}</p>
+                    <small class="text-muted">座標: ${latitude.toFixed(4)}, ${longitude.toFixed(4)} | 資料來源: 農業部自動氣象站</small>
+                </div>
+            `;
+            weatherInfoElement.innerHTML = weatherInfoHtml;
+            
+            debugLog(`🎉 農業氣象資料載入成功: ${ctyName} ${townName} - ${nearestStation.Station_name}`);
+            
+        } catch (error) {
+            debugLog('❌ 農業氣象資料獲取失敗:', error.message);
+            weatherInfoElement.innerHTML = `
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle"></i> 農業氣象資料獲取失敗</h6>
+                    <p><strong>錯誤：</strong>${error.message}</p>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
+                        <i class="fas fa-redo"></i> 重試
+                    </button>
+                </div>
+            `;
         }
-        
-        weatherInfoHtml += `</div>`;
-        weatherInfoElement.innerHTML = weatherInfoHtml;
-        
-        debugLog(`🎉 完整氣象資料載入成功: ${ctyName} ${townName}`);
     }
 }
 
 // 更新氣象參數到表單
-function updateWeatherInputs(temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb) {
+function updateWeatherInputs(temperature, windSpeed, townName, cityName, humidity, pressure, rainfall) {
     try {
-        debugLog('🔄 開始更新氣象參數', { temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb });
+        debugLog('🔄 開始更新農業氣象參數', { 
+            temperature, windSpeed, townName, cityName, humidity, pressure, rainfall 
+        });
         
         // 更新溫度
         const tempInput = document.getElementById('temperature');
-        if (tempInput && temperature !== null && temperature !== undefined) {
+        if (tempInput) {
             tempInput.value = temperature;
             debugLog(`🌡️ 溫度已更新: ${temperature}°C`);
         }
 
         // 更新風速
         const windSpeedInput = document.getElementById('windSpeed');
-        if (windSpeedInput && windSpeed !== null && windSpeed !== undefined) {
+        if (windSpeedInput) {
             windSpeedInput.value = windSpeed;
             debugLog(`💨 風速已更新: ${windSpeed} m/s`);
         }
 
-        // 更新降雨機率
-        const rainProbInput = document.getElementById('rainProb');
-        if (rainProbInput && rainProb !== null && rainProb !== undefined && rainProb !== '') {
-            rainProbInput.value = rainProb;
-            debugLog(`🌧️ 降雨機率已更新: ${rainProb}%`);
+        // 更新濕度
+        const humidityInput = document.getElementById('humidity');
+        if (humidityInput) {
+            humidityInput.value = humidity;
+            debugLog(`💧 濕度已更新: ${humidity}%`);
+        }
+
+        // 更新氣壓
+        const pressureInput = document.getElementById('pressure');
+        if (pressureInput) {
+            pressureInput.value = pressure;
+            debugLog(`📊 氣壓已更新: ${pressure} hPa`);
+        }
+
+        // 更新降雨量
+        const rainfallInput = document.getElementById('rainfall');
+        if (rainfallInput) {
+            rainfallInput.value = rainfall;
+            debugLog(`🌧️ 降雨量已更新: ${rainfall} mm`);
         }
 
         // 觸發計算更新
@@ -565,11 +631,11 @@ function updateWeatherInputs(temperature, windSpeed, townName, cityName, maxCI, 
             debugLog('🔄 已觸發計算更新');
         }
 
-        debugLog('✅ 氣象參數更新完成');
+        debugLog('✅ 農業氣象參數更新完成');
         
     } catch (error) {
-        debugLog('❌ 更新氣象參數時發生錯誤:', error.message);
+        debugLog('❌ 更新農業氣象參數時發生錯誤:', error.message);
     }
 }
 
-debugLog('🚀 位置系統載入完成（含自動氣象站功能）');
+debugLog('🚀 農業氣象站整合位置系統載入完成');
