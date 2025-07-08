@@ -309,7 +309,7 @@ class AgriWeatherAPI {
     try {
       debugLog('🌾 開始獲取農業部自動氣象站資料...');
       
-      const apiUrl = CONFIG.AGRI_API.baseURL;
+      let apiUrl = CONFIG.AGRI_API.baseURL;
       if (CONFIG.AGRI_API.apiKey && CONFIG.AGRI_API.apiKey !== 'YOUR_AGRI_API_KEY') {
         apiUrl += `?apikey=${CONFIG.AGRI_API.apiKey}`;
       }
@@ -541,7 +541,7 @@ function activateAPIs(latitude, longitude) {
                 nearestStation.H_24R || 0,
                 latitude,
                 longitude
-          );
+              );
 
             const weatherInfoHtml = `
                 <div class="alert alert-success">
