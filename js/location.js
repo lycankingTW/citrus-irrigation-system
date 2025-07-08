@@ -1,4 +1,4 @@
-// location.js - 修正版本（解決行政區查詢失敗問題）
+// location.js - 修正版本（解決XML解析問題）
 
 // 調試日誌函數
 function debugLog(message, data = null) {
@@ -58,10 +58,11 @@ function showLocationError(message) {
     `;
 }
 
-// XML解析函數
+// XML解析函數 - 修正版
 function parseLocationXML(xmlText) {
     try {
-        debugLog('開始解析XML:', xmlText.substring(0, 200));
+        debugLog('開始解析XML，內容長度:', xmlText.length);
+        debugLog('XML前200字符:', xmlText.substring(0, 200));
         
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
@@ -69,19 +70,57 @@ function parseLocationXML(xmlText) {
         // 檢查XML解析錯誤
         const parseError = xmlDoc.querySelector('parsererror');
         if (parseError) {
+            debugLog('XML解析錯誤:', parseError.textContent);
             throw new Error('XML解析錯誤');
         }
         
-        // 提取行政區資訊
-        const ctyName = xmlDoc.querySelector('ctyName')?.textContent || 
-                       xmlDoc.querySelector('countyname')?.textContent || 
-                       xmlDoc.querySelector('COUNTYNAME')?.textContent || '';
-        const townName = xmlDoc.querySelector('townName')?.textContent || 
-                        xmlDoc.querySelector('townname')?.textContent || 
-                        xmlDoc.querySelector('TOWNNAME')?.textContent || '';
-        const ctyCode = xmlDoc.querySelector('ctyCode')?.textContent || 
-                       xmlDoc.querySelector('countycode')?.textContent || 
-                       xmlDoc.querySelector('COUNTYCODE')?.textContent || '';
+        // 嘗試多種可能的標籤名稱
+        let ctyName = '';
+        let townName = '';
+        let ctyCode = '';
+        
+        // 方法1: 直接查找標籤
+        const ctyNameNodes = ['ctyName', 'countyname', 'COUNTYNAME', 'county', 'County'];
+        const townNameNodes = ['townName', 'townname', 'TOWNNAME', 'town', 'Town'];
+        const ctyCodeNodes = ['ctyCode', 'countycode', 'COUNTYCODE', 'code', 'Code'];
+        
+        for (let tagName of ctyNameNodes) {
+            const element = xmlDoc.querySelector(tagName);
+            if (element && element.textContent) {
+                ctyName = element.textContent.trim();
+                break;
+            }
+        }
+        
+        for (let tagName of townNameNodes) {
+            const element = xmlDoc.querySelector(tagName);
+            if (element && element.textContent) {
+                townName = element.textContent.trim();
+                break;
+            }
+        }
+        
+        for (let tagName of ctyCodeNodes) {
+            const element = xmlDoc.querySelector(tagName);
+            if (element && element.textContent) {
+                ctyCode = element.textContent.trim();
+                break;
+            }
+        }
+        
+        // 方法2: 如果方法1失敗，嘗試查找所有文本節點
+        if (!ctyName || !townName) {
+            debugLog('嘗試方法2: 查找所有元素');
+            const allElements = xmlDoc.querySelectorAll('*');
+            debugLog('找到的所有XML元素:', Array.from(allElements).map(el => el.tagName));
+            
+            // 列出所有有內容的元素
+            for (let element of allElements) {
+                if (element.textContent && element.textContent.trim()) {
+                    debugLog(`元素 ${element.tagName}: ${element.textContent.trim()}`);
+                }
+            }
+        }
         
         debugLog('XML解析結果:', { ctyName, townName, ctyCode });
         
@@ -92,11 +131,14 @@ function parseLocationXML(xmlText) {
                 ctyCode: ctyCode
             };
         } else {
+            // 如果解析失敗，顯示XML結構以便調試
+            debugLog('XML解析失敗，完整XML內容:', xmlText);
             throw new Error('XML中找不到行政區資訊');
         }
         
     } catch (error) {
         debugLog('XML解析失敗:', error.message);
+        debugLog('原始XML內容:', xmlText);
         throw new Error(`XML解析失敗: ${error.message}`);
     }
 }
@@ -215,26 +257,37 @@ function activateAPIs(latitude, longitude) {
 
     fetch(locationApiUrl)
         .then(response => {
+            debugLog('API回應狀態:', response.status);
+            debugLog('API回應標頭:', Object.fromEntries(response.headers.entries()));
+            
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            // 檢查回應類型
-            const contentType = response.headers.get('content-type');
-            debugLog('API回應類型:', contentType);
+            // 直接當作XML處理
+            return response.text();
+        })
+        .then((xmlText) => {
+            debugLog('收到API回應，長度:', xmlText.length);
+            debugLog('回應內容前100字符:', xmlText.substring(0, 100));
             
-            if (contentType && contentType.includes('application/json')) {
-                return response.json();
+            // 檢查是否為XML
+            if (xmlText.trim().startsWith('<?xml') || xmlText.trim().startsWith('<')) {
+                debugLog('確認為XML格式，開始解析');
+                return parseLocationXML(xmlText);
             } else {
-                // 處理XML回應
-                return response.text().then(text => {
-                    debugLog('收到XML回應，開始解析...');
-                    return parseLocationXML(text);
-                });
+                // 嘗試JSON解析
+                debugLog('嘗試JSON解析');
+                try {
+                    return JSON.parse(xmlText);
+                } catch (e) {
+                    debugLog('JSON解析失敗:', e.message);
+                    throw new Error('回應格式無法識別');
+                }
             }
         })
         .then((res) => {
-            debugLog('✅ 行政區資料:', res);
+            debugLog('✅ 行政區資料解析成功:', res);
             
             if (res && res.ctyName && res.townName) {
                 const ctyName = res.ctyName;
@@ -251,6 +304,7 @@ function activateAPIs(latitude, longitude) {
                     throw new Error(`找不到 ${ctyName} 的氣象站編號`);
                 }
             } else {
+                debugLog('❌ 行政區資料格式異常:', res);
                 throw new Error('無法解析行政區資料');
             }
         })
@@ -258,9 +312,8 @@ function activateAPIs(latitude, longitude) {
             debugLog('❌ 行政區查詢失敗:', err);
             weatherInfoElement.innerHTML = `
                 <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    行政區查詢失敗: ${err.message}
-                    <br>
+                    <h6><i class="fas fa-exclamation-triangle"></i> 行政區查詢失敗</h6>
+                    <p>${err.message}</p>
                     <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
                         <i class="fas fa-redo"></i> 重試
                     </button>
@@ -332,9 +385,8 @@ function activateAPIs(latitude, longitude) {
                 debugLog('❌ 氣象資料獲取失敗:', err);
                 weatherInfoElement.innerHTML = `
                     <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        氣象資料獲取失敗: ${err.message}
-                        <br>
+                        <h6><i class="fas fa-exclamation-triangle"></i> 氣象資料獲取失敗</h6>
+                        <p>${err.message}</p>
                         <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
                             <i class="fas fa-redo"></i> 重試
                         </button>
@@ -368,18 +420,6 @@ function updateWeatherInputs(temperature, windSpeed, townName, cityName, maxCI, 
         if (rainProbInput) {
             rainProbInput.value = rainProb;
             debugLog(`✅ 降雨機率已更新: ${rainProb}%`);
-        }
-
-        // 更新資料來源資訊
-        const timestamp = new Date().toLocaleString('zh-TW');
-        const sourceInfo = document.getElementById('data-source');
-        if (sourceInfo) {
-            sourceInfo.innerHTML = `
-                <small class="text-muted">
-                    <i class="fas fa-info-circle"></i>
-                    資料來源: ${cityName} ${townName} 氣象站 | 更新時間: ${timestamp}
-                </small>
-            `;
         }
 
         // 觸發計算更新
