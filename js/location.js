@@ -1,4 +1,4 @@
-// location.js - 修正版本（解決XML解析問題）
+// location.js - 完全修正版本（徹底解決XML解析問題）
 
 // 調試日誌函數
 function debugLog(message, data = null) {
@@ -58,71 +58,85 @@ function showLocationError(message) {
     `;
 }
 
-// XML解析函數 - 修正版
+// XML解析函數 - 完全重寫版
 function parseLocationXML(xmlText) {
     try {
-        debugLog('開始解析XML，內容長度:', xmlText.length);
-        debugLog('XML前200字符:', xmlText.substring(0, 200));
+        debugLog('🔍 開始解析XML，內容長度:', xmlText.length);
+        debugLog('📄 XML前200字符:', xmlText.substring(0, 200));
         
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
         
         // 檢查XML解析錯誤
         const parseError = xmlDoc.querySelector('parsererror');
         if (parseError) {
-            debugLog('XML解析錯誤:', parseError.textContent);
-            throw new Error('XML解析錯誤');
+            debugLog('❌ XML解析錯誤:', parseError.textContent);
+            throw new Error('XML格式錯誤');
         }
         
-        // 嘗試多種可能的標籤名稱
+        // 列出所有元素以便調試
+        const allElements = xmlDoc.querySelectorAll('*');
+        debugLog('🔎 XML中的所有元素:');
+        for (let element of allElements) {
+            if (element.textContent && element.textContent.trim()) {
+                debugLog(`   ${element.tagName}: "${element.textContent.trim()}"`);
+            }
+        }
+        
+        // 嘗試多種可能的標籤組合
         let ctyName = '';
         let townName = '';
         let ctyCode = '';
         
-        // 方法1: 直接查找標籤
-        const ctyNameNodes = ['ctyName', 'countyname', 'COUNTYNAME', 'county', 'County'];
-        const townNameNodes = ['townName', 'townname', 'TOWNNAME', 'town', 'Town'];
-        const ctyCodeNodes = ['ctyCode', 'countycode', 'COUNTYCODE', 'code', 'Code'];
+        // 縣市名稱的可能標籤
+        const countyTags = [
+            'ctyName', 'countyName', 'COUNTYNAME', 'county', 'County',
+            'ctyname', 'CTYNAME', 'ctName', 'CTNAME'
+        ];
         
-        for (let tagName of ctyNameNodes) {
-            const element = xmlDoc.querySelector(tagName);
-            if (element && element.textContent) {
+        // 鄉鎮名稱的可能標籤
+        const townTags = [
+            'townName', 'townname', 'TOWNNAME', 'town', 'Town',
+            'tName', 'TNAME', 'twName', 'TWNAME'
+        ];
+        
+        // 代碼的可能標籤
+        const codeTags = [
+            'ctyCode', 'countyCode', 'COUNTYCODE', 'code', 'Code',
+            'ctycode', 'CTYCODE', 'ctCode', 'CTCODE'
+        ];
+        
+        // 查找縣市名稱
+        for (let tag of countyTags) {
+            const element = xmlDoc.querySelector(tag);
+            if (element && element.textContent && element.textContent.trim()) {
                 ctyName = element.textContent.trim();
+                debugLog(`✅ 找到縣市名稱 (${tag}): ${ctyName}`);
                 break;
             }
         }
         
-        for (let tagName of townNameNodes) {
-            const element = xmlDoc.querySelector(tagName);
-            if (element && element.textContent) {
+        // 查找鄉鎮名稱
+        for (let tag of townTags) {
+            const element = xmlDoc.querySelector(tag);
+            if (element && element.textContent && element.textContent.trim()) {
                 townName = element.textContent.trim();
+                debugLog(`✅ 找到鄉鎮名稱 (${tag}): ${townName}`);
                 break;
             }
         }
         
-        for (let tagName of ctyCodeNodes) {
-            const element = xmlDoc.querySelector(tagName);
-            if (element && element.textContent) {
+        // 查找代碼
+        for (let tag of codeTags) {
+            const element = xmlDoc.querySelector(tag);
+            if (element && element.textContent && element.textContent.trim()) {
                 ctyCode = element.textContent.trim();
+                debugLog(`✅ 找到代碼 (${tag}): ${ctyCode}`);
                 break;
             }
         }
         
-        // 方法2: 如果方法1失敗，嘗試查找所有文本節點
-        if (!ctyName || !townName) {
-            debugLog('嘗試方法2: 查找所有元素');
-            const allElements = xmlDoc.querySelectorAll('*');
-            debugLog('找到的所有XML元素:', Array.from(allElements).map(el => el.tagName));
-            
-            // 列出所有有內容的元素
-            for (let element of allElements) {
-                if (element.textContent && element.textContent.trim()) {
-                    debugLog(`元素 ${element.tagName}: ${element.textContent.trim()}`);
-                }
-            }
-        }
-        
-        debugLog('XML解析結果:', { ctyName, townName, ctyCode });
+        debugLog('🎯 最終解析結果:', { ctyName, townName, ctyCode });
         
         if (ctyName && townName) {
             return {
@@ -131,15 +145,13 @@ function parseLocationXML(xmlText) {
                 ctyCode: ctyCode
             };
         } else {
-            // 如果解析失敗，顯示XML結構以便調試
-            debugLog('XML解析失敗，完整XML內容:', xmlText);
-            throw new Error('XML中找不到行政區資訊');
+            debugLog('❌ 解析失敗，完整XML內容:', xmlText);
+            throw new Error(`找不到完整行政區資訊 (縣市: "${ctyName}", 鄉鎮: "${townName}")`);
         }
         
     } catch (error) {
-        debugLog('XML解析失敗:', error.message);
-        debugLog('原始XML內容:', xmlText);
-        throw new Error(`XML解析失敗: ${error.message}`);
+        debugLog('❌ XML解析異常:', error.message);
+        throw error;
     }
 }
 
@@ -226,7 +238,7 @@ function activateAPIs(latitude, longitude) {
     
     const locationApiUrl = `https://api.nlsc.gov.tw/other/TownVillagePointQuery/${longitude}/${latitude}/4326`;
     
-    debugLog('查詢行政區:', locationApiUrl);
+    debugLog('🌍 查詢行政區:', locationApiUrl);
 
     // 創建或獲取天氣顯示區域
     let weatherInfoElement = document.getElementById('weather-parameters') || 
@@ -255,65 +267,59 @@ function activateAPIs(latitude, longitude) {
         </div>
     `;
 
+    // 使用 fetch 獲取行政區資料
     fetch(locationApiUrl)
         .then(response => {
-            debugLog('API回應狀態:', response.status);
-            debugLog('API回應標頭:', Object.fromEntries(response.headers.entries()));
+            debugLog('📡 API回應狀態:', response.status);
+            debugLog('📋 API回應標頭:', Object.fromEntries(response.headers.entries()));
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                throw new Error(`HTTP錯誤 ${response.status}`);
             }
             
-            // 直接當作XML處理
+            // 重要：直接返回 text()，不要嘗試 json()
             return response.text();
         })
-        .then((xmlText) => {
-            debugLog('收到API回應，長度:', xmlText.length);
-            debugLog('回應內容前100字符:', xmlText.substring(0, 100));
+        .then((responseText) => {
+            debugLog('📥 收到API回應，長度:', responseText.length);
+            debugLog('📝 回應內容前150字符:', responseText.substring(0, 150));
             
-            // 檢查是否為XML
-            if (xmlText.trim().startsWith('<?xml') || xmlText.trim().startsWith('<')) {
-                debugLog('確認為XML格式，開始解析');
-                return parseLocationXML(xmlText);
+            // 確保這是XML格式
+            if (responseText.trim().startsWith('<?xml') || responseText.includes('<')) {
+                debugLog('✅ 確認為XML格式，開始解析');
+                return parseLocationXML(responseText);
             } else {
-                // 嘗試JSON解析
-                debugLog('嘗試JSON解析');
-                try {
-                    return JSON.parse(xmlText);
-                } catch (e) {
-                    debugLog('JSON解析失敗:', e.message);
-                    throw new Error('回應格式無法識別');
-                }
+                debugLog('❌ 回應格式異常:', responseText.substring(0, 100));
+                throw new Error('API回應格式不是XML');
             }
         })
-        .then((res) => {
-            debugLog('✅ 行政區資料解析成功:', res);
+        .then((locationData) => {
+            debugLog('🎉 行政區資料解析成功:', locationData);
             
-            if (res && res.ctyName && res.townName) {
-                const ctyName = res.ctyName;
-                const townName = res.townName;
+            if (locationData && locationData.ctyName && locationData.townName) {
+                const ctyName = locationData.ctyName;
+                const townName = locationData.townName;
                 
-                debugLog(`🎯 行政區: ${ctyName} ${townName}`);
+                debugLog(`🏛️ 解析出行政區: ${ctyName} ${townName}`);
                 
                 const dataid = cityList[ctyName];
                 if (dataid) {
-                    const apiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=${format}&LocationName=${townName}`;
-                    debugLog('氣象API URL:', apiUrl);
-                    getWeatherApi(apiUrl, townName, ctyName);
+                    const weatherApiUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataid}?Authorization=${apikey}&format=${format}&LocationName=${townName}`;
+                    debugLog('🌤️ 氣象API URL:', weatherApiUrl);
+                    getWeatherApi(weatherApiUrl, townName, ctyName);
                 } else {
-                    throw new Error(`找不到 ${ctyName} 的氣象站編號`);
+                    throw new Error(`找不到 ${ctyName} 對應的氣象站編號`);
                 }
             } else {
-                debugLog('❌ 行政區資料格式異常:', res);
-                throw new Error('無法解析行政區資料');
+                throw new Error('行政區資料不完整');
             }
         })
-        .catch((err) => {
-            debugLog('❌ 行政區查詢失敗:', err);
+        .catch((error) => {
+            debugLog('❌ 行政區查詢失敗:', error.message);
             weatherInfoElement.innerHTML = `
                 <div class="alert alert-danger">
                     <h6><i class="fas fa-exclamation-triangle"></i> 行政區查詢失敗</h6>
-                    <p>${err.message}</p>
+                    <p><strong>錯誤：</strong>${error.message}</p>
                     <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
                         <i class="fas fa-redo"></i> 重試
                     </button>
@@ -322,7 +328,7 @@ function activateAPIs(latitude, longitude) {
         });
 
     function getWeatherApi(apiUrl, townName, ctyName) {
-        debugLog(`正在獲取 ${ctyName} ${townName} 的氣象資料...`);
+        debugLog(`🌦️ 正在獲取 ${ctyName} ${townName} 的氣象資料...`);
         
         weatherInfoElement.innerHTML = `
             <div class="text-center">
@@ -335,21 +341,22 @@ function activateAPIs(latitude, longitude) {
         
         fetch(apiUrl)
             .then(response => {
+                debugLog('🌡️ 氣象API回應狀態:', response.status);
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                    throw new Error(`氣象API HTTP錯誤 ${response.status}`);
                 }
                 return response.json();
             })
-            .then((res) => {
-                debugLog('✅ 氣象API回應:', res);
+            .then((weatherData) => {
+                debugLog('✅ 氣象API回應成功:', weatherData);
                 
-                if (!res.records || !res.records.Locations || !res.records.Locations[0] || 
-                    !res.records.Locations[0].Location || !res.records.Locations[0].Location[0] ||
-                    !res.records.Locations[0].Location[0].WeatherElement) {
-                    throw new Error('氣象資料格式異常');
+                if (!weatherData.records || !weatherData.records.Locations || !weatherData.records.Locations[0] || 
+                    !weatherData.records.Locations[0].Location || !weatherData.records.Locations[0].Location[0] ||
+                    !weatherData.records.Locations[0].Location[0].WeatherElement) {
+                    throw new Error('氣象資料結構異常');
                 }
                 
-                const weatherElement = res.records.Locations[0].Location[0].WeatherElement;
+                const weatherElement = weatherData.records.Locations[0].Location[0].WeatherElement;
                 const startTime = new Date(weatherElement[0].Time[0].StartTime);
                 const endTime = new Date(weatherElement[0].Time[0].EndTime);
                 const dateRange = `${startTime.getMonth() + 1}月${startTime.getDate()}日 ${startTime.getHours()}點${startTime.getMinutes()}分 ～ ${endTime.getMonth() + 1}月${endTime.getDate()}日 ${endTime.getHours()}點${endTime.getMinutes()}分`;
@@ -378,15 +385,15 @@ function activateAPIs(latitude, longitude) {
                 `;
                 weatherInfoElement.innerHTML = weatherInfoHtml;
                 
-                debugLog(`✅ 氣象資料載入成功: ${ctyName} ${townName}`);
+                debugLog(`🎉 氣象資料載入成功: ${ctyName} ${townName}`);
                 
             })
-            .catch((err) => {
-                debugLog('❌ 氣象資料獲取失敗:', err);
+            .catch((error) => {
+                debugLog('❌ 氣象資料獲取失敗:', error.message);
                 weatherInfoElement.innerHTML = `
                     <div class="alert alert-warning">
                         <h6><i class="fas fa-exclamation-triangle"></i> 氣象資料獲取失敗</h6>
-                        <p>${err.message}</p>
+                        <p><strong>錯誤：</strong>${error.message}</p>
                         <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
                             <i class="fas fa-redo"></i> 重試
                         </button>
@@ -399,39 +406,40 @@ function activateAPIs(latitude, longitude) {
 // 更新氣象參數到表單
 function updateWeatherInputs(temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb) {
     try {
-        debugLog('開始更新氣象參數', { temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb });
+        debugLog('🔄 開始更新氣象參數', { temperature, windSpeed, townName, cityName, maxCI, minCI, rainProb });
         
         // 更新溫度
         const tempInput = document.getElementById('temperature');
         if (tempInput) {
             tempInput.value = temperature;
-            debugLog(`✅ 溫度已更新: ${temperature}°C`);
+            debugLog(`🌡️ 溫度已更新: ${temperature}°C`);
         }
 
         // 更新風速
         const windSpeedInput = document.getElementById('windSpeed');
         if (windSpeedInput) {
             windSpeedInput.value = windSpeed;
-            debugLog(`✅ 風速已更新: ${windSpeed} m/s`);
+            debugLog(`💨 風速已更新: ${windSpeed} m/s`);
         }
 
         // 更新降雨機率
         const rainProbInput = document.getElementById('rainProb');
         if (rainProbInput) {
             rainProbInput.value = rainProb;
-            debugLog(`✅ 降雨機率已更新: ${rainProb}%`);
+            debugLog(`🌧️ 降雨機率已更新: ${rainProb}%`);
         }
 
         // 觸發計算更新
         if (typeof updateCalculation === 'function') {
             updateCalculation();
+            debugLog('🔄 已觸發計算更新');
         }
 
         debugLog('✅ 氣象參數更新完成');
         
     } catch (error) {
-        debugLog('❌ 更新氣象參數時發生錯誤', error);
+        debugLog('❌ 更新氣象參數時發生錯誤:', error.message);
     }
 }
 
-debugLog('位置系統載入完成');
+debugLog('🚀 位置系統載入完成');
