@@ -538,10 +538,10 @@ function activateAPIs(latitude, longitude) {
                 ctyName, 
                 nearestStation.HUMD,
                 nearestStation.PRES,
-                nearestStation.H_24R || 0
-                latitude,  // 新增：實際定位的緯度
-                longitude  // 新增：實際定位的經度
-            );
+                nearestStation.H_24R || 0,
+                latitude,
+                longitude
+          );
 
             const weatherInfoHtml = `
                 <div class="alert alert-success">
