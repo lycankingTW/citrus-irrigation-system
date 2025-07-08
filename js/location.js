@@ -1,4 +1,4 @@
-// location.js - 修正版本（移除錯誤的座標判斷）
+// location.js - 修正版本（解決行政區查詢失敗問題）
 
 // 調試日誌函數
 function debugLog(message, data = null) {
@@ -58,6 +58,49 @@ function showLocationError(message) {
     `;
 }
 
+// XML解析函數
+function parseLocationXML(xmlText) {
+    try {
+        debugLog('開始解析XML:', xmlText.substring(0, 200));
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        
+        // 檢查XML解析錯誤
+        const parseError = xmlDoc.querySelector('parsererror');
+        if (parseError) {
+            throw new Error('XML解析錯誤');
+        }
+        
+        // 提取行政區資訊
+        const ctyName = xmlDoc.querySelector('ctyName')?.textContent || 
+                       xmlDoc.querySelector('countyname')?.textContent || 
+                       xmlDoc.querySelector('COUNTYNAME')?.textContent || '';
+        const townName = xmlDoc.querySelector('townName')?.textContent || 
+                        xmlDoc.querySelector('townname')?.textContent || 
+                        xmlDoc.querySelector('TOWNNAME')?.textContent || '';
+        const ctyCode = xmlDoc.querySelector('ctyCode')?.textContent || 
+                       xmlDoc.querySelector('countycode')?.textContent || 
+                       xmlDoc.querySelector('COUNTYCODE')?.textContent || '';
+        
+        debugLog('XML解析結果:', { ctyName, townName, ctyCode });
+        
+        if (ctyName && townName) {
+            return {
+                ctyName: ctyName,
+                townName: townName,
+                ctyCode: ctyCode
+            };
+        } else {
+            throw new Error('XML中找不到行政區資訊');
+        }
+        
+    } catch (error) {
+        debugLog('XML解析失敗:', error.message);
+        throw new Error(`XML解析失敗: ${error.message}`);
+    }
+}
+
 // 當文件載入完成後執行
 document.addEventListener('DOMContentLoaded', function() {
     debugLog('DOM 載入完成，初始化位置服務');
@@ -86,7 +129,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         const longitude = position.coords.longitude;
                         
                         updateLocationDisplay(position);
-                        // 直接使用您的簡潔方法
                         activateAPIs(latitude, longitude);
                         resetButton();
                     }, 
@@ -127,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// 使用您原本正確的方法
+// 主要API函數
 function activateAPIs(latitude, longitude) {
     const cityList = {
         宜蘭縣: 'F-D0047-003', 桃園市: 'F-D0047-007', 新竹縣: 'F-D0047-011', 苗栗縣: 'F-D0047-015',
@@ -140,10 +182,9 @@ function activateAPIs(latitude, longitude) {
     const apikey = 'CWA-D32F5AAF-8CB1-49C5-A651-8AD504393777';
     const format = 'JSON';
     
-    // 使用國土測繪中心API - 這是正確的方法！
     const locationApiUrl = `https://api.nlsc.gov.tw/other/TownVillagePointQuery/${longitude}/${latitude}/4326`;
     
-    debugLog('查詢真實行政區:', locationApiUrl);
+    debugLog('查詢行政區:', locationApiUrl);
 
     // 創建或獲取天氣顯示區域
     let weatherInfoElement = document.getElementById('weather-parameters') || 
@@ -177,16 +218,29 @@ function activateAPIs(latitude, longitude) {
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            return response.json();
+            
+            // 檢查回應類型
+            const contentType = response.headers.get('content-type');
+            debugLog('API回應類型:', contentType);
+            
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                // 處理XML回應
+                return response.text().then(text => {
+                    debugLog('收到XML回應，開始解析...');
+                    return parseLocationXML(text);
+                });
+            }
         })
         .then((res) => {
-            debugLog('✅ 國土測繪中心回應:', res);
+            debugLog('✅ 行政區資料:', res);
             
-            if (res.ctyCode) {
+            if (res && res.ctyName && res.townName) {
                 const ctyName = res.ctyName;
                 const townName = res.townName;
                 
-                debugLog(`🎯 正確的行政區: ${ctyName} ${townName}`);
+                debugLog(`🎯 行政區: ${ctyName} ${townName}`);
                 
                 const dataid = cityList[ctyName];
                 if (dataid) {
@@ -197,7 +251,7 @@ function activateAPIs(latitude, longitude) {
                     throw new Error(`找不到 ${ctyName} 的氣象站編號`);
                 }
             } else {
-                throw new Error('行政區資料無法取得');
+                throw new Error('無法解析行政區資料');
             }
         })
         .catch((err) => {
@@ -206,6 +260,10 @@ function activateAPIs(latitude, longitude) {
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle"></i>
                     行政區查詢失敗: ${err.message}
+                    <br>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="activateAPIs(${latitude}, ${longitude})">
+                        <i class="fas fa-redo"></i> 重試
+                    </button>
                 </div>
             `;
         });
@@ -232,7 +290,9 @@ function activateAPIs(latitude, longitude) {
             .then((res) => {
                 debugLog('✅ 氣象API回應:', res);
                 
-                if (!townName || !res.records || !res.records.Locations || !res.records.Locations[0] || !res.records.Locations[0].Location || !res.records.Locations[0].Location[0]) {
+                if (!res.records || !res.records.Locations || !res.records.Locations[0] || 
+                    !res.records.Locations[0].Location || !res.records.Locations[0].Location[0] ||
+                    !res.records.Locations[0].Location[0].WeatherElement) {
                     throw new Error('氣象資料格式異常');
                 }
                 
@@ -303,7 +363,7 @@ function updateWeatherInputs(temperature, windSpeed, townName, cityName, maxCI, 
             debugLog(`✅ 風速已更新: ${windSpeed} m/s`);
         }
 
-        // 🎯 更新降雨機率
+        // 更新降雨機率
         const rainProbInput = document.getElementById('rainProb');
         if (rainProbInput) {
             rainProbInput.value = rainProb;
