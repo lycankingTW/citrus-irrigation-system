@@ -131,15 +131,21 @@
                           
                           <div class="mb-3">
                               <label for="latitude" class="form-label">緯度 (°)</label>
-                              <input type="number" class="form-control" id="latitude" step="0.0001" min="20" max="26" value="24.5593" required>
-                              <small class="form-text text-muted">自動定位後會更新此數值</small>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="longitude" class="form-label">經度 (°)</label>
-                              <input type="number" class="form-control" id="longitude" step="0.0001" min="118" max="122" value="120.8214" required>
-                              <small class="form-text text-muted">自動定位後會更新此數值</small>
-                          </div>
+                              <input type="number" class="form-control" id="latitude" step="0.0001" min="20" max="26" value="" placeholder="24.5593" required>
+                              <small class="form-text text-muted">
+                                  <i class="fas fa-info-circle text-primary"></i> 
+                                  點擊「自動獲取當前位置氣象資料」按鈕後自動更新
+                             </small>
+                         </div>
+    
+                         <div class="mb-3">
+                             <label for="longitude" class="form-label">經度 (°)</label>
+                             <input type="number" class="form-control" id="longitude" step="0.0001" min="118" max="122" value="" placeholder="120.8214" required>
+                             <small class="form-text text-muted">
+                                 <i class="fas fa-info-circle text-primary"></i> 
+                                 點擊「自動獲取當前位置氣象資料」按鈕後自動更新
+                             </small>
+                         </div>
                           
                           <div class="mb-3">
                               <label for="elevation" class="form-label">海拔高度 (m)</label>
