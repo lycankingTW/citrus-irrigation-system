@@ -12,11 +12,17 @@ const CONFIG = {
   // 農業部API設定
   AGRI_API: {
     baseURL: 'https://data.moa.gov.tw/api/v1/AutoWeatherStationType/',
-    api_key: 'IKXAGW0DJ1G90FL4SJ5N364EM567QX', // 請替換為您的農業部API金鑰
-    timeout: 10000,
-    retryCount: 3,              // API失敗重試次數
-    retryDelay: 2000           // 重試間隔(毫秒)
-  },
+    api_key: 'IKXAGW0DJ1G90FL4SJ5N364EM567QX',
+    apiKeyParam: 'api_key', // 修正：使用官方文件的正確參數名稱
+    timeout: 15000,
+    retryCount: 3,
+    retryDelay: 2000,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'CitrusIrrigationSystem/1.0'
+      }
+},
   
   // 目標位置設定
   TARGET_LOCATION: {
