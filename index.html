@@ -113,6 +113,39 @@
                               <label for="plantAge" class="form-label">樹齡 (年)</label>
                               <input type="number" class="form-control" id="plantAge" min="1" max="50" value="8" required>
                           </div>
+
+                          <!-- 新增：冠層覆蓋度 -->
+                          <div class="mb-3">
+                              <label for="canopyCover" class="form-label">冠層覆蓋度 (%)</label>
+                              <input type="number" class="form-control" id="canopyCover" min="10" max="100" step="5" value="70" required>
+                              <small class="form-text text-muted">樹冠覆蓋土地面積的百分比</small>
+                          </div>
+                      </div>
+
+                      <!-- 地理位置參數 -->
+                      <div class="parameter-section">
+                          <h5 class="section-title">
+                              <i class="fas fa-map-marker-alt text-info"></i>
+                              地理位置參數
+                          </h5>
+                          
+                          <div class="mb-3">
+                              <label for="latitude" class="form-label">緯度 (°)</label>
+                              <input type="number" class="form-control" id="latitude" step="0.0001" min="20" max="26" value="24.5593" required>
+                              <small class="form-text text-muted">自動定位後會更新此數值</small>
+                          </div>
+                          
+                          <div class="mb-3">
+                              <label for="longitude" class="form-label">經度 (°)</label>
+                              <input type="number" class="form-control" id="longitude" step="0.0001" min="118" max="122" value="120.8214" required>
+                              <small class="form-text text-muted">自動定位後會更新此數值</small>
+                          </div>
+                          
+                          <div class="mb-3">
+                              <label for="elevation" class="form-label">海拔高度 (m)</label>
+                              <input type="number" class="form-control" id="elevation" min="0" max="4000" step="1" value="85" required>
+                              <small class="form-text text-muted">影響氣壓和溫度計算</small>
+                          </div>
                       </div>
 
                       <!-- 氣象參數 -->
@@ -176,6 +209,13 @@
                               <input type="number" class="form-control" id="rainfall" step="0.1" min="0" max="500" value="0" required>
                               <small class="form-text text-muted">自動獲取的降雨量數據</small>
                           </div>
+
+                          <!-- 新增：太陽輻射 -->
+                          <div class="mb-3">
+                              <label for="solarRadiation" class="form-label">太陽輻射 (MJ/m²/day)</label>
+                              <input type="number" class="form-control" id="solarRadiation" step="0.1" min="0" max="35" value="20" required>
+                              <small class="form-text text-muted">日太陽輻射總量</small>
+                          </div>
                       </div>
 
                       <!-- 土壤參數 -->
@@ -204,6 +244,13 @@
                               <label for="currentMoisture" class="form-label">目前土壤含水量 (%)</label>
                               <input type="number" class="form-control" id="currentMoisture" min="0" max="100" step="1" value="60" required>
                           </div>
+
+                          <!-- 新增：有機質含量 -->
+                          <div class="mb-3">
+                              <label for="organicMatter" class="form-label">有機質含量 (%)</label>
+                              <input type="number" class="form-control" id="organicMatter" min="0" max="10" step="0.1" value="2.5" required>
+                              <small class="form-text text-muted">影響土壤保水能力</small>
+                          </div>
                       </div>
 
                       <!-- 管理參數 -->
@@ -222,10 +269,24 @@
                                   <option value="furrow">溝灌系統</option>
                               </select>
                           </div>
+
+                          <!-- 新增：系統效率 -->
+                          <div class="mb-3">
+                              <label for="systemEfficiency" class="form-label">系統效率 (%)</label>
+                              <input type="number" class="form-control" id="systemEfficiency" min="50" max="98" step="1" value="90" required>
+                              <small class="form-text text-muted">灌溉系統的水分利用效率</small>
+                          </div>
                           
                           <div class="mb-3">
                               <label for="plantDensity" class="form-label">種植密度 (株/公頃)</label>
                               <input type="number" class="form-control" id="plantDensity" min="100" max="1000" step="10" value="400" required>
+                          </div>
+
+                          <!-- 新增：灌溉間隔 -->
+                          <div class="mb-3">
+                              <label for="irrigationInterval" class="form-label">灌溉間隔 (天)</label>
+                              <input type="number" class="form-control" id="irrigationInterval" min="1" max="14" step="1" value="3" required>
+                              <small class="form-text text-muted">兩次灌溉之間的天數</small>
                           </div>
                           
                           <div class="mb-3">
