@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import base64
+import html
+from contextlib import contextmanager
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 
 import streamlit as st
@@ -16,9 +19,12 @@ from citrus_farmer.model import (
 )
 from citrus_farmer.weather import fetch_miaoli_station, fetch_nearest_station
 
-LOGO_PATH = Path(__file__).resolve().parent / "images" / "logo.png"
-
-st.set_page_config(page_title="今天要不要灌水", page_icon="🌱", layout="centered")
+st.set_page_config(
+    page_title="今天要不要灌水",
+    page_icon=str(Path(__file__).resolve().parent / "images" / "logo.png"),
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
 
 SOIL_OPTIONS = [
     ("砂土", "sand"),
@@ -50,157 +56,393 @@ STAGE_OPTIONS = [("照今天自動判斷", "auto")] + [
     (preset["name"], key) for key, preset in STAGE_PRESETS.items()
 ]
 DENSITY_OPTIONS = [("約 300 株，種得比較開", 300), ("約 400 株，常見距離", 400), ("約 600 株，種得比較密", 600), ("自己填", 0)]
-def _logo_src() -> str:
-    encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode("ascii")
+
+_THEME_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap');
+
+:root {
+    --green: #1b5e20;
+    --green-dark: #0d3d14;
+    --leaf: #e8f5e9;
+    --line: #d7e3d8;
+    --ink: #1c241c;
+    --muted: #5c6b5e;
+    --warn: #e65100;
+    --warn-bg: #fff3e0;
+    --ok: #2e7d32;
+    --ok-bg: #e8f5e9;
+    --shadow: 0 8px 24px rgba(27, 94, 32, 0.08);
+}
+
+html, body, .stApp, .stAppViewContainer,
+[data-testid="stMarkdown"],
+[data-testid="stWidgetLabel"],
+[data-testid="stCaptionContainer"],
+[data-testid="stRadio"] label,
+button,
+input,
+textarea {
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+    color: var(--ink);
+}
+
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+    background: #f3f6f1;
+}
+
+#MainMenu,
+header[data-testid="stHeader"],
+footer,
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stHeader"],
+[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"],
+[data-testid="stSidebar"],
+[data-testid="stSidebarCollapsedControl"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+}
+
+[data-testid="stStatusWidget"] {
+    visibility: hidden;
+}
+
+.stApp {
+    overflow-x: hidden;
+}
+
+.block-container,
+[data-testid="stMainBlockContainer"] {
+    max-width: 736px !important;
+    padding-top: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 48px !important;
+}
+
+.farmer-top {
+    background: var(--green);
+    color: white;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-bottom: 20px;
+    padding: 28px 16px 24px;
+}
+
+.farmer-top-inner {
+    max-width: 704px;
+    margin: 0 auto;
+}
+
+.site-logo {
+    width: 96px;
+    height: 96px;
+    display: block;
+    margin-bottom: 12px;
+    background: #fff;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.farmer-top .org {
+    margin: 0;
+    opacity: 0.85;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.farmer-top h1 {
+    margin: 6px 0 8px;
+    font-size: 2rem;
+    line-height: 1.25;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 0;
+}
+
+.farmer-top .lead {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    opacity: 0.95;
+}
+
+[data-testid="stMarkdown"]:has(.farmer-top) {
+    margin-bottom: 0;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #ffffff;
+    border: 1px solid var(--line) !important;
+    border-radius: 18px !important;
+    box-shadow: var(--shadow);
+    padding: 18px 16px 10px !important;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    margin: 0 0 12px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.3;
+    color: var(--ink);
+}
+
+[data-testid="stMarkdown"]:has(.section-title) {
+    margin-bottom: 0.15rem;
+}
+
+[data-testid="stWidgetLabel"] p,
+[data-testid="stWidgetLabel"] label {
+    font-weight: 700 !important;
+    color: var(--ink) !important;
+    font-size: 1.02rem !important;
+}
+
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: var(--muted) !important;
+    font-size: 0.95rem !important;
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] {
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] > label {
+    background: #fff;
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px !important;
+    margin: 0 !important;
+    min-height: 48px;
+    align-items: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) {
+    border-color: var(--green);
+    background: var(--leaf);
+    box-shadow: inset 0 0 0 1px var(--green);
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] > label p {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+[data-baseweb="select"] > div,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextInput"] input {
+    border-radius: 12px !important;
+    border-color: var(--line) !important;
+    min-height: 48px;
+    background: #fff;
+}
+
+[data-testid="stNumberInput"] button {
+    border-color: var(--line) !important;
+    color: var(--green) !important;
+}
+
+[data-testid="stCheckbox"] label p {
+    font-weight: 700;
+}
+
+.stApp button[kind="primary"] {
+    background: var(--green) !important;
+    border: 0 !important;
+    color: #fff !important;
+    border-radius: 12px !important;
+    min-height: 64px !important;
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    box-shadow: 0 8px 18px rgba(27, 94, 32, 0.18);
+}
+
+.stApp button[kind="primary"]:hover {
+    background: var(--green-dark) !important;
+    color: #fff !important;
+    border: 0 !important;
+}
+
+.stApp button[kind="secondary"] {
+    background: #fff !important;
+    color: var(--green) !important;
+    border: 2px solid var(--green) !important;
+    border-radius: 12px !important;
+    min-height: 52px !important;
+    font-weight: 800 !important;
+}
+
+.stApp button[kind="secondary"]:hover {
+    background: var(--leaf) !important;
+    color: var(--green) !important;
+    border: 2px solid var(--green) !important;
+}
+
+.stApp button:focus-visible {
+    outline: 3px solid #e8a317;
+    outline-offset: 2px;
+}
+
+.station-card {
+    margin-top: 4px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--leaf);
+    border: 2px solid var(--green);
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+.station-card strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+.result {
+    border-radius: 18px;
+    padding: 22px 18px;
+    margin: 8px 0 16px;
+}
+
+.result.need {
+    background: var(--warn-bg);
+    border: 3px solid var(--warn);
+}
+
+.result.ok {
+    background: var(--ok-bg);
+    border: 3px solid var(--ok);
+}
+
+.result h2 {
+    margin: 0 0 8px;
+    font-size: 2rem;
+    line-height: 1.25;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.metric-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 8px 0 4px;
+}
+
+.metric-kicker {
+    margin: 0;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.liters {
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 2px 0 0;
+    color: var(--ink);
+}
+
+.liters span {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.say {
+    font-size: 1.08rem;
+    line-height: 1.55;
+    margin: 10px 0 0;
+    color: var(--ink);
+}
+
+.say.shortfall {
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-weight: 700;
+}
+
+[data-testid="stMarkdown"]:has(.result) {
+    margin-bottom: 0;
+}
+
+[data-testid="stExpander"] {
+    background: #fff;
+    border: 1px solid var(--line) !important;
+    border-radius: 18px !important;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span {
+    font-weight: 700;
+}
+
+@media (max-width: 520px) {
+    .farmer-top h1 {
+        font-size: 1.7rem;
+    }
+    .metric-row {
+        grid-template-columns: 1fr;
+    }
+    .liters {
+        font-size: 2.3rem;
+    }
+}
+"""
+
+
+@lru_cache(maxsize=1)
+def _logo_uri() -> str:
+    logo_path = Path(__file__).resolve().parent / "images" / "logo.png"
+    encoded = base64.b64encode(logo_path.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
 
 
-def _apply_theme() -> None:
-    """隱藏 Streamlit 預設介面，並套上農民版的綠色版面。"""
-    st.markdown(
-        """
-        <style>
-            #MainMenu, header, footer { visibility: hidden; }
-            [data-testid="stToolbar"],
-            [data-testid="stDecoration"],
-            [data-testid="stHeader"],
-            [data-testid="stAppDeployButton"] { display: none !important; }
-            [data-testid="stStatusWidget"] { visibility: hidden; }
-
-            html, body, [data-testid="stAppViewContainer"] {
-                background: #f3f6f1;
-            }
-            .block-container {
-                max-width: 760px;
-                padding-top: 0;
-                padding-bottom: 3rem;
-            }
-            .hero {
-                background: linear-gradient(160deg, #1b5e20 0%, #0d3d14 100%);
-                color: white;
-                margin: 0 -1rem 1.25rem;
-                padding: 28px 24px 24px;
-                border-radius: 0 0 28px 28px;
-                display: flex;
-                gap: 18px;
-                align-items: center;
-            }
-            .hero img {
-                width: 96px;
-                height: 96px;
-                border-radius: 50%;
-                background: white;
-                object-fit: cover;
-                flex: 0 0 96px;
-                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-            }
-            .hero .org {
-                margin: 0;
-                opacity: 0.88;
-                font-size: 0.95rem;
-                letter-spacing: 0.04em;
-            }
-            .hero h1 {
-                margin: 4px 0 6px;
-                font-size: 2rem;
-                line-height: 1.25;
-                color: white;
-            }
-            .hero .lead {
-                margin: 0;
-                font-size: 1.05rem;
-                opacity: 0.95;
-            }
-            [data-testid="stVerticalBlockBorderWrapper"] {
-                background: white;
-                border: 1px solid #d7e3d8 !important;
-                border-radius: 18px !important;
-                box-shadow: 0 8px 24px rgba(27, 94, 32, 0.08);
-                padding: 4px 8px 8px;
-                margin-bottom: 14px;
-            }
-            h3, [data-testid="stHeading"] h3 {
-                color: #1b5e20;
-            }
-            button[data-testid="stBaseButton-primary"] {
-                background: #1b5e20;
-                border: none;
-                color: white;
-                min-height: 60px;
-                border-radius: 14px;
-                font-size: 1.25rem;
-                font-weight: 800;
-            }
-            button[data-testid="stBaseButton-primary"]:hover {
-                background: #0d3d14;
-                color: white;
-            }
-            button[data-testid="stBaseButton-secondary"] {
-                border: 2px solid #1b5e20;
-                color: #1b5e20;
-                background: white;
-                min-height: 48px;
-                border-radius: 12px;
-                font-weight: 700;
-            }
-            .result-card {
-                border-radius: 18px;
-                padding: 22px 18px;
-                margin: 8px 0 16px;
-            }
-            .result-card.need {
-                background: #fff3e0;
-                border: 3px solid #e65100;
-            }
-            .result-card.ok {
-                background: #e8f5e9;
-                border: 3px solid #2e7d32;
-            }
-            .result-card h2 {
-                margin: 0 0 8px;
-                font-size: 2rem;
-            }
-            .result-card .figure {
-                font-size: 2.6rem;
-                font-weight: 800;
-                line-height: 1.1;
-                margin: 6px 0;
-            }
-            .result-card .figure span {
-                font-size: 1.15rem;
-                font-weight: 700;
-            }
-            .result-card p { margin: 8px 0 0; font-size: 1.08rem; }
-            .note {
-                background: #fff8e1;
-                border-radius: 12px;
-                padding: 10px 12px;
-                margin-top: 10px;
-            }
-            @media (max-width: 640px) {
-                .hero { flex-direction: column; align-items: flex-start; padding: 22px 18px; }
-                .hero h1 { font-size: 1.7rem; }
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+def _hide_streamlit_default_ui() -> None:
+    """隱藏 Streamlit 預設介面（只影響畫面，不是存取控制）。"""
+    st.markdown(f"<style>{_THEME_CSS}</style>", unsafe_allow_html=True)
 
 
 def _render_header() -> None:
+    logo = _logo_uri()
     st.markdown(
         f"""
-        <div class="hero">
-            <img src="{_logo_src()}" alt="苗栗區農業改良場">
-            <div>
-                <p class="org">苗栗區農業改良場</p>
-                <h1>今天要不要灌水</h1>
-                <p class="lead">選果園狀況和今天的雨量，看每株幾公升、一分地幾噸。</p>
-            </div>
-        </div>
+        <header class="farmer-top">
+          <div class="farmer-top-inner">
+            <img class="site-logo" src="{logo}" alt="苗栗區農業改良場">
+            <p class="org">苗栗區農業改良場</p>
+            <h1>今天要不要灌水</h1>
+            <p class="lead">可讀附近農業氣象站的雨量，再按一下就知道每株幾公升、一分地幾噸。</p>
+          </div>
+        </header>
         """,
         unsafe_allow_html=True,
     )
+
+
+@contextmanager
+def _section(title: str):
+    with st.container(border=True):
+        st.markdown(f'<p class="section-title">{html.escape(title)}</p>', unsafe_allow_html=True)
+        yield
+
 
 _LOCATE = st.components.v2.component(
     "farmer_geolocation",
@@ -208,13 +450,14 @@ _LOCATE = st.components.v2.component(
     css="""
     button.locate {
         width: 100%;
-        min-height: 48px;
+        min-height: 52px;
         border: 0;
-        border-radius: 8px;
+        border-radius: 12px;
         background: #1b5e20;
         color: white;
+        font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
         font-size: 1rem;
-        font-weight: 700;
+        font-weight: 800;
         cursor: pointer;
     }
     button.locate:disabled { opacity: 0.7; }
@@ -292,46 +535,42 @@ def _rain_mm(choice: str, custom_mm: float, use_station: bool) -> float:
 
 
 def _show_result(result: IrrigationResult) -> None:
+    kind = "need" if result.irrigate else "ok"
     liters = round(result.liters_per_plant)
-    trees = round(result.trees_per_fen)
     tons = f"{result.tons_per_fen:.1f}"
-    sentence = STAGE_SENTENCE.get(result.stage_name, "")
+    trees = round(result.trees_per_fen)
+    parts = [f"<h2>{html.escape(result.headline)}</h2>"]
     if result.irrigate:
-        shortfall = ""
+        parts.append(
+            '<div class="metric-row">'
+            f'<div><p class="metric-kicker">每株</p><p class="liters">{liters} <span>公升</span></p></div>'
+            f'<div><p class="metric-kicker">一分地</p><p class="liters">{tons} <span>噸</span></p></div>'
+            "</div>"
+        )
+        parts.append(
+            f'<p class="say">{html.escape(result.system_name)}每株大約灌 {liters} 公升。'
+            f"一分地大約 {trees} 株，共 {tons} 噸。</p>"
+        )
         if result.shortfall_mm > 0:
-            shortfall = (
-                f'<p class="note">灌完土還是偏乾，還差 {result.shortfall_mm:.1f} 毫米。明天再算一次。</p>'
+            parts.append(
+                f'<p class="say shortfall">灌完土還是偏乾，還差 {result.shortfall_mm:.1f} 毫米。明天再算一次。</p>'
             )
-        st.markdown(
-            f"""
-            <div class="result-card need">
-                <h2>{result.headline}</h2>
-                <div class="figure">{liters} <span>公升／株</span></div>
-                <div class="figure">{tons} <span>噸／分地</span></div>
-                <p>{result.system_name}每株大約灌 {liters} 公升。一分地大約 {trees} 株，共 {tons} 噸。</p>
-                {shortfall}
-                <p>現在是{result.stage_name}。{sentence}</p>
-                <p>同樣把 10 毫米的水送進土裡：滴灌最省，微噴居中，噴灌最耗水。</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        parts.append('<p class="say">同樣把 10 毫米的水送進土裡：滴灌最省，微噴居中，噴灌最耗水。</p>')
     else:
-        follow_up = ""
-        if result.headline == "今天先不用灌" and result.days_until:
-            extra = f"這幾天先假設還是「{result.stage_name}」。" if result.stage_fixed else ""
-            follow_up = f"<p>如果後面沒下雨，大約 {result.days_until} 天後再來看。{extra}</p>"
-        st.markdown(
-            f"""
-            <div class="result-card ok">
-                <h2>{result.headline}</h2>
-                <div class="figure">0.0 <span>噸／分地</span></div>
-                {follow_up}
-                <p>現在是{result.stage_name}。{sentence}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        parts.append(
+            '<div class="metric-row">'
+            f'<div><p class="metric-kicker">一分地</p><p class="liters">{tons} <span>噸</span></p></div>'
+            "</div>"
         )
+        if result.headline == "今天先不用灌" and result.days_until:
+            extra = ""
+            if result.stage_fixed:
+                extra = f"這幾天先假設還是「{html.escape(result.stage_name)}」。"
+            parts.append(f'<p class="say">如果後面沒下雨，大約 {result.days_until} 天後再來看。{extra}</p>')
+
+    sentence = STAGE_SENTENCE.get(result.stage_name, "")
+    parts.append(f'<p class="say">現在是{html.escape(result.stage_name)}。{html.escape(sentence)}</p>')
+    st.markdown(f'<div class="result {kind}">{"".join(parts)}</div>', unsafe_allow_html=True)
 
     with st.expander("為什麼是這個結果"):
         rows = [
@@ -348,12 +587,11 @@ def _show_result(result: IrrigationResult) -> None:
 
 
 def main() -> None:
-    _apply_theme()
+    _hide_streamlit_default_ui()
     _render_header()
     today = date.today()
 
-    with st.container(border=True):
-        st.subheader("1. 今天")
+    with _section("1. 今天"):
         st.write(f"今天是 {today.year}年{today.month}月{today.day}日")
         here, miaoli = st.columns(2)
         with here:
@@ -377,9 +615,14 @@ def main() -> None:
         if st.session_state.get("station_error"):
             st.error(st.session_state["station_error"])
         if station is not None:
-            st.info(
-                f"{station.name}測站，距離{station.place_name} {station.distance_km:.1f} 公里。"
-                f"24 小時雨量 {station.rain_mm:.1f} 毫米。更新時間 {station.observed_at or '測站未提供'}。"
+            observed = station.observed_at or "測站未提供"
+            st.markdown(
+                '<div class="station-card">'
+                f"<strong>{html.escape(station.name)}測站</strong>"
+                f"距離{html.escape(station.place_name)} {station.distance_km:.1f} 公里。"
+                f"24 小時雨量 {station.rain_mm:.1f} 毫米。更新時間 {html.escape(observed)}。"
+                "</div>",
+                unsafe_allow_html=True,
             )
 
         use_station = False
@@ -392,8 +635,7 @@ def main() -> None:
             custom_mm = st.number_input("今天雨量（毫米）", min_value=0.0, max_value=500.0, value=0.0, step=0.1)
         st.caption("只有一點不到 3 毫米，幾乎不算。小雨大約 10 毫米。")
 
-    with st.container(border=True):
-        st.subheader("2. 果樹")
+    with _section("2. 果樹"):
         stage_label = st.selectbox("現在果樹在哪個時期？", [item[0] for item in STAGE_OPTIONS])
         stage_mode = _value(STAGE_OPTIONS, stage_label)
         if stage_mode == "auto":
@@ -427,8 +669,7 @@ def main() -> None:
             density_level = "high" if spacing == "比較密" else "low"
             st.caption("這只會稍微改變幼樹每天耗水，通常不會改這一劑要灌幾公升。")
 
-    with st.container(border=True):
-        st.subheader("3. 土和果園")
+    with _section("3. 土和果園"):
         soil = _value(SOIL_OPTIONS, st.selectbox("土是哪一種", [item[0] for item in SOIL_OPTIONS], index=2))
         root = _value(ROOT_OPTIONS, st.radio("根大概多深", [item[0] for item in ROOT_OPTIONS], index=1))
         situation = _value(SITUATION_OPTIONS, st.radio("果園情況", [item[0] for item in SITUATION_OPTIONS]))
@@ -439,8 +680,7 @@ def main() -> None:
         moisture = _value(MOISTURE_OPTIONS, st.radio("現在土摸起來", [item[0] for item in MOISTURE_OPTIONS], index=1, horizontal=True))
         st.caption("這只看你現在摸到的土。下次打開要重選，不會沿用上次算完的耗水量。不確定就選「普通」。")
 
-    with st.container(border=True):
-        st.subheader("4. 怎麼灌")
+    with _section("4. 怎麼灌"):
         system = _value(SYSTEM_OPTIONS, st.radio("園裡用哪一種", [item[0] for item in SYSTEM_OPTIONS]))
         st.caption("同樣把 10 毫米的水送進土裡：滴灌最省，微噴居中，噴灌最耗水。")
 
