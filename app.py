@@ -175,13 +175,13 @@ footer,
     margin-bottom: 0;
 }
 
-[data-testid="stVerticalBlockBorderWrapper"] {
+[data-testid="stLayoutWrapper"] > [data-testid="stVerticalBlock"] {
     background: #ffffff;
     border: 1px solid var(--line) !important;
     border-radius: 18px !important;
     box-shadow: var(--shadow);
-    padding: 18px 16px 10px !important;
-    margin-bottom: 16px;
+    padding: 18px 16px 12px !important;
+    margin-bottom: 4px;
 }
 
 .section-title {
@@ -209,12 +209,47 @@ footer,
     font-size: 0.95rem !important;
 }
 
-div[data-testid="stRadio"] div[role="radiogroup"] {
+/* Streamlit 深色主題的淺字配上淺底會看不見，這裡一律改成深字。 */
+.stApp [data-testid="stMarkdownContainer"] p,
+.stApp [data-testid="stMarkdownContainer"] li,
+.stApp [data-testid="stMarkdownContainer"] span,
+.stApp [data-testid="stWidgetLabel"] p,
+.stApp [data-testid="stWidgetLabel"] label,
+.stApp [data-testid="stRadio"] p,
+.stApp [data-testid="stRadio"] span,
+.stApp [data-testid="stRadio"] label,
+.stApp [data-testid="stCheckbox"] p,
+.stApp [data-testid="stSelectbox"] [data-baseweb="select"] div,
+.stApp [data-testid="stSelectbox"] [data-baseweb="select"] span,
+.stApp [data-testid="stNumberInput"] input {
+    color: #1c241c !important;
+}
+
+.farmer-top,
+.farmer-top p,
+.farmer-top h1,
+.farmer-top .org,
+.farmer-top .lead {
+    color: #ffffff !important;
+}
+
+[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    color: #1c241c !important;
+}
+
+[data-testid="stRadioGroup"] {
+    display: flex;
     gap: 8px;
     flex-wrap: wrap;
 }
 
-div[data-testid="stRadio"] div[role="radiogroup"] > label {
+[data-testid="stRadioGroup"][aria-orientation="vertical"] {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+[data-testid="stRadioOption"] {
     background: #fff;
     border: 2px solid var(--line);
     border-radius: 12px;
@@ -225,13 +260,18 @@ div[data-testid="stRadio"] div[role="radiogroup"] > label {
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-div[data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) {
+[data-testid="stRadioGroup"][aria-orientation="vertical"] > div,
+[data-testid="stRadioGroup"][aria-orientation="vertical"] [data-testid="stRadioOption"] {
+    width: 100%;
+}
+
+[data-testid="stRadioOption"][data-selected="true"] {
     border-color: var(--green);
     background: var(--leaf);
     box-shadow: inset 0 0 0 1px var(--green);
 }
 
-div[data-testid="stRadio"] div[role="radiogroup"] > label p {
+[data-testid="stRadioOption"] p {
     font-size: 1rem;
     font-weight: 700;
     color: var(--ink);
@@ -349,17 +389,27 @@ div[data-testid="stRadio"] div[role="radiogroup"] > label p {
     font-size: 0.95rem;
 }
 
-.liters {
-    font-size: 2.6rem;
-    font-weight: 800;
-    line-height: 1.1;
-    margin: 2px 0 0;
-    color: var(--ink);
+.stMarkdown p.liters,
+p.liters {
+    font-size: 2.75rem !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    margin: 2px 0 0 !important;
+    color: var(--ink) !important;
 }
 
-.liters span {
-    font-size: 1.15rem;
-    font-weight: 700;
+.stMarkdown p.liters span,
+p.liters span {
+    font-size: 1.2rem !important;
+    font-weight: 700 !important;
+}
+
+.stMarkdown p.metric-kicker,
+p.metric-kicker {
+    margin: 0 !important;
+    color: var(--muted) !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
 }
 
 .say {
@@ -415,25 +465,18 @@ def _logo_uri() -> str:
     return f"data:image/png;base64,{encoded}"
 
 
-def _hide_streamlit_default_ui() -> None:
-    """隱藏 Streamlit 預設介面（只影響畫面，不是存取控制）。"""
-    st.markdown(f"<style>{_THEME_CSS}</style>", unsafe_allow_html=True)
-
-
 def _render_header() -> None:
+    """隱藏 Streamlit 預設介面，並畫出綠色頁首。樣式和頁首放在同一塊，避免上方多出空白。"""
     logo = _logo_uri()
-    st.markdown(
-        f"""
-        <header class="farmer-top">
-          <div class="farmer-top-inner">
-            <img class="site-logo" src="{logo}" alt="苗栗區農業改良場">
-            <p class="org">苗栗區農業改良場</p>
-            <h1>今天要不要灌水</h1>
-            <p class="lead">可讀附近農業氣象站的雨量，再按一下就知道每株幾公升、一分地幾噸。</p>
-          </div>
-        </header>
-        """,
-        unsafe_allow_html=True,
+    st.html(
+        f"<style>{_THEME_CSS}</style>"
+        '<header class="farmer-top">'
+        '<div class="farmer-top-inner">'
+        f'<img class="site-logo" src="{logo}" alt="苗栗區農業改良場">'
+        '<p class="org">苗栗區農業改良場</p>'
+        "<h1>今天要不要灌水</h1>"
+        "<p class=\"lead\">可讀附近農業氣象站的雨量，再按一下就知道每株幾公升、一分地幾噸。</p>"
+        "</div></header>"
     )
 
 
@@ -587,7 +630,6 @@ def _show_result(result: IrrigationResult) -> None:
 
 
 def main() -> None:
-    _hide_streamlit_default_ui()
     _render_header()
     today = date.today()
 
