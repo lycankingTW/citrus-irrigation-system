@@ -387,9 +387,19 @@ function onSubmit(event) {
     document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function waterPerFen(litersPerPlant, plantDensity) {
+    const fenSquareMeters = 293.4 / 0.3025;
+    const treesPerFen = plantDensity * (fenSquareMeters / 10000);
+    const tonsPerFen = litersPerPlant * treesPerFen / 1000;
+    return { treesPerFen: treesPerFen, tonsPerFen: tonsPerFen };
+}
+
 function renderResult(results, parameters) {
     const box = document.getElementById('result');
-    const liters = Math.round(results.irrigationLiters);
+    const liters = Math.round(results.irrigationLiters || 0);
+    const fen = waterPerFen(results.irrigationLiters || 0, parameters.plantDensity);
+    const treesText = Math.round(fen.treesPerFen);
+    const tonsText = fen.tonsPerFen.toFixed(1);
     const stage = results.kcStage;
     const stageText = STAGE_SENTENCE[stage] || '';
     const systemName = IRRIGATION_SYSTEM_PARAMETERS[parameters.irrigationSystem].name;
@@ -397,13 +407,13 @@ function renderResult(results, parameters) {
     let body;
     if (results.irrigated) {
         title = '今天要灌';
-        body = systemName + '每株大約灌 ' + liters + ' 公升。一分地大約 ' + Math.round(results.treesPerFen) + ' 株，共 ' + results.tonsPerFen.toFixed(1) + ' 噸。';
+        body = systemName + '每株大約灌 ' + liters + ' 公升。一分地大約 ' + treesText + ' 株，共 ' + tonsText + ' 噸。';
         if (results.soilDeficit > results.ram) {
             body += '灌完土還是偏乾，明天再算一次。';
         }
     } else {
         title = '今天先不用灌';
-        body = '土裡的水還沒少到需要灌的程度。';
+        body = '土裡的水還沒少到需要灌的程度，所以一分地是 0 噸。';
         if (results.daysUntilNext) {
             body += '如果後面沒下雨，大約 ' + results.daysUntilNext + ' 天後再來看。';
         }
@@ -412,7 +422,7 @@ function renderResult(results, parameters) {
     box.innerHTML = [
         '<h2>' + title + '</h2>',
         results.irrigated ? '<p class="liters">' + liters + ' <span>公升／株</span></p>' : '',
-        results.irrigated ? '<p class="liters">' + results.tonsPerFen.toFixed(1) + ' <span>噸／分地</span></p>' : '',
+        '<p class="liters">' + tonsText + ' <span>噸／分地</span></p>',
         '<p class="say">' + body + '</p>',
         '<p class="say">現在是' + stage + '。' + stageText + '</p>',
         weatherAdvice(parameters) ? '<p class="say">' + escapeHtml(weatherAdvice(parameters)) + '</p>' : ''
@@ -422,6 +432,6 @@ function renderResult(results, parameters) {
         '<li>土壤：' + SOIL_CHOICES[parameters.soilType] + '，根大約 ' + parameters.soilDepth + ' 公分。</li>',
         '<li>今天雨量用 ' + parameters.rainfall.toFixed(1) + ' 毫米' + (usingStationRain() ? '（' + escapeHtml(stationReading.name) + '測站）' : '') + '，有效雨量 ' + results.pe.toFixed(1) + ' 毫米。作物大約耗水 ' + results.etc.toFixed(1) + ' 毫米。</li>',
         '<li>土裡已少的水 ' + results.deficitBefore.toFixed(1) + ' 毫米，超過 ' + results.ram.toFixed(1) + ' 毫米才需要灌。</li>',
-        results.irrigated ? '<li>這次灌溉深度 ' + results.irrigationDepth.toFixed(1) + ' 毫米，換成每株約 ' + liters + ' 公升。一分地約 ' + Math.round(results.treesPerFen) + ' 株，共 ' + results.tonsPerFen.toFixed(1) + ' 噸。</li>' : ''
+        '<li>每株約 ' + liters + ' 公升。一分地約 ' + treesText + ' 株，共 ' + tonsText + ' 噸。</li>'
     ].join('');
 }
