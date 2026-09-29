@@ -60,13 +60,6 @@ body {
     opacity: 0.95;
 }
 
-.top-link {
-    display: inline-block;
-    margin-top: 14px;
-    color: white;
-    font-weight: 700;
-}
-
 .card {
     background: var(--card);
     border-radius: 18px;
