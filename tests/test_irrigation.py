@@ -3,7 +3,7 @@
 from datetime import date
 
 from citrus_farmer.model import IrrigationInput, calculate, effective_rain
-from citrus_farmer.weather import nearest_station
+from citrus_farmer.weather import combine_station_pages, nearest_station
 
 FIXED = date(2026, 1, 15)
 
@@ -116,3 +116,31 @@ def test_nearest_station_picks_closest_record():
     station = nearest_station(records, 24.5593, 120.8214)
     assert station.name == "近站"
     assert station.rain_mm == 1.5
+
+
+def test_rainfall_pages_keep_a_station_missing_from_the_first_page():
+    pages = [
+        [{"Station_ID": "A", "Station_name": "遠站", "LAT": "25.2", "LON": "121.5", "HOUR_24": "8"}],
+        [{"Station_ID": "A", "Station_name": "遠站", "LAT": "25.2", "LON": "121.5", "HOUR_24": "8"},
+         {"Station_ID": "B", "Station_name": "近站", "LAT": "24.56", "LON": "120.82", "HOUR_24": "1.5"}],
+    ]
+    station = nearest_station(combine_station_pages(pages), 24.5593, 120.8214)
+    assert station.name == "近站"
+    assert station.rain_mm == 1.5
+
+
+def test_negative_rainfall_is_not_used():
+    records = [{"Station_name": "缺測", "LAT": "24.56", "LON": "120.82", "HOUR_24": "-998"}]
+    station = nearest_station(records, 24.5593, 120.8214)
+    assert station.rain_mm == 0.0
+
+
+def test_nearest_rainfall_station_uses_lat_lon_and_hour_24():
+    records = [
+        {"Station_name": "遠站", "LAT": "25.2", "LON": "121.5", "HOUR_24": "8", "TIME": "t1"},
+        {"Station_name": "近站", "LAT": "24.56", "LON": "120.82", "HOUR_24": "1.5", "RAIN": "9", "TIME": "t2"},
+    ]
+    station = nearest_station(records, 24.5593, 120.8214)
+    assert station.name == "近站"
+    assert station.rain_mm == 1.5
+    assert station.observed_at == "t2"
