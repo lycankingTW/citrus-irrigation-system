@@ -3,7 +3,7 @@
 from datetime import date
 
 from citrus_farmer.model import IrrigationInput, calculate, effective_rain
-from citrus_farmer.weather import nearest_station
+from citrus_farmer.weather import fetch_miaoli_station, fetch_nearest_station, nearest_station
 
 FIXED = date(2026, 1, 15)
 
@@ -106,6 +106,11 @@ def test_age_and_spacing_do_not_change_dose_liters_when_both_irrigate():
     younger = calculate(_base(moisture="dry", plant_age=8, density_level="high"))
     assert older.irrigate and younger.irrigate
     assert round(older.liters_per_plant) == round(younger.liters_per_plant) == 291
+
+
+def test_weather_module_exports_station_loaders():
+    assert callable(fetch_miaoli_station)
+    assert callable(fetch_nearest_station)
 
 
 def test_nearest_station_picks_closest_record():

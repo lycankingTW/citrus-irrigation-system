@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import math
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
-
-import requests
 
 MIAOLI_LAT = 24.5593
 MIAOLI_LON = 120.8214
@@ -67,14 +68,22 @@ def nearest_station(
     )
 
 
-def fetch_nearest_station(latitude: float, longitude: float, place_name: str, timeout: float = 12) -> StationReading:
-    response = requests.get(API_URL, params={"api_key": API_KEY}, timeout=timeout)
-    response.raise_for_status()
-    payload = response.json()
+def fetch_records(timeout: float = 12) -> list:
+    query = urllib.parse.urlencode({"api_key": API_KEY})
+    request = urllib.request.Request(
+        f"{API_URL}?{query}",
+        headers={"User-Agent": "citrus-irrigation-system"},
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        payload = json.loads(response.read().decode("utf-8"))
     records = payload.get("Data") or payload.get("data") or []
     if not isinstance(records, list) or not records:
         raise LookupError("氣象站沒有回傳資料")
-    return nearest_station(records, latitude, longitude, place_name)
+    return records
+
+
+def fetch_nearest_station(latitude: float, longitude: float, place_name: str, timeout: float = 12) -> StationReading:
+    return nearest_station(fetch_records(timeout), latitude, longitude, place_name)
 
 
 def fetch_miaoli_station(timeout: float = 12) -> StationReading:
