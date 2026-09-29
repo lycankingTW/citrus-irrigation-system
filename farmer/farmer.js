@@ -43,7 +43,7 @@ const STAGE_SENTENCE = {
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('farmerForm');
-    document.getElementById('currentDate').value = window.irrigationFormula.localDateISO();
+    showToday();
     bindChoices();
     bindStepper();
     document.getElementById('treeAge').addEventListener('input', updateYoungQuestion);
@@ -61,7 +61,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     loadOrchard();
     updateYoungQuestion();
+    updateStageHint();
 });
+
+function showToday() {
+    const today = window.irrigationFormula.localDateISO();
+    const parts = today.split('-');
+    document.getElementById('todayLabel').textContent =
+        '今天是 ' + parts[0] + '年' + Number(parts[1]) + '月' + Number(parts[2]) + '日';
+}
+
+function updateStageHint() {
+    const hint = document.getElementById('stageHint');
+    const mode = selectedValue('stage', 'auto');
+    if (mode === 'auto') {
+        const name = window.irrigationFormula.stageOnDate(window.irrigationFormula.localDateISO());
+        hint.textContent = '依今天判斷，現在是' + name + '。如果園裡不是這個時期，請自己選。';
+        return;
+    }
+    const notes = {
+        prebud: '你選了萌芽前，這段需水少。',
+        spring: '你選了春梢萌發。',
+        shoot: '你選了枝梢旺盛，水要跟上。',
+        fruit: '你選了果實膨大，這段最需要水。',
+        mature: '你選了接近採收，可以稍為控水。'
+    };
+    hint.textContent = notes[mode] || '';
+}
 
 function bindChoices() {
     document.querySelectorAll('.choice').forEach(function(button) {
@@ -78,6 +104,9 @@ function bindChoices() {
             }
             if (group === 'rain') {
                 document.getElementById('rainCustomWrap').classList.toggle('hidden', button.dataset.value !== 'custom');
+            }
+            if (group === 'stage') {
+                updateStageHint();
             }
         });
     });
@@ -121,7 +150,8 @@ function orchardProfile() {
         soil: selectedValue('soil', 'loam'),
         root: selectedValue('root', 'normal'),
         situation: selectedValue('situation', 'general'),
-        system: selectedValue('system', 'drip')
+        system: selectedValue('system', 'drip'),
+        stage: selectedValue('stage', 'auto')
     };
 }
 
@@ -166,6 +196,9 @@ function loadOrchard() {
     }
     if (saved.system) {
         selectChoice('system', saved.system);
+    }
+    if (saved.stage) {
+        selectChoice('stage', saved.stage);
     }
     document.getElementById('savedNote').hidden = false;
 }
@@ -357,7 +390,8 @@ function buildParameters() {
     const initialDeficit = useDefaultDeficit ? fc * preset.d : fc * MOISTURE_FACTOR[moisture];
     const youngSpacing = selectedValue('youngSpacing', 'sparse');
     return {
-        currentDate: document.getElementById('currentDate').value || window.irrigationFormula.localDateISO(),
+        currentDate: window.irrigationFormula.localDateISO(),
+        stageMode: selectedValue('stage', 'auto'),
         plantAge: age,
         plantDensity: plantDensity(),
         densityLevel: youngSpacing === 'dense' ? 'high' : 'low',
@@ -425,6 +459,7 @@ function renderResult(results, parameters) {
         '<p class="liters">' + tonsText + ' <span>噸／分地</span></p>',
         '<p class="say">' + body + '</p>',
         '<p class="say">現在是' + stage + '。' + stageText + '</p>',
+        '<p class="say">同樣把 10 毫米的水送進土裡：滴灌最省，微噴居中，噴灌最耗水。</p>',
         weatherAdvice(parameters) ? '<p class="say">' + escapeHtml(weatherAdvice(parameters)) + '</p>' : ''
     ].join('');
 

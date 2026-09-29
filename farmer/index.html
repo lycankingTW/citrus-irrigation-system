@@ -23,8 +23,9 @@
       <section class="card">
         <h2>1. 今天</h2>
         <div class="field">
-          <label for="currentDate">日期</label>
-          <input type="date" id="currentDate" required>
+          <p class="choice-label">日期</p>
+          <p id="todayLabel" class="today-label">今天</p>
+          <span class="hint">一律用今天，不用選日期。</span>
         </div>
         <div class="field">
           <p class="choice-label">附近農業氣象站</p>
@@ -53,6 +54,18 @@
 
       <section class="card">
         <h2>2. 果樹</h2>
+        <div class="field">
+          <p class="choice-label" id="stageLabel">現在果樹在哪個時期？</p>
+          <div class="choices" role="radiogroup" aria-labelledby="stageLabel">
+            <button type="button" class="choice is-selected" data-group="stage" data-value="auto" aria-pressed="true">照今天自動判斷</button>
+            <button type="button" class="choice" data-group="stage" data-value="prebud" aria-pressed="false">萌芽前<small>需水少</small></button>
+            <button type="button" class="choice" data-group="stage" data-value="spring" aria-pressed="false">春梢萌發</button>
+            <button type="button" class="choice" data-group="stage" data-value="shoot" aria-pressed="false">枝梢旺盛</button>
+            <button type="button" class="choice" data-group="stage" data-value="fruit" aria-pressed="false">果實膨大<small>最需要水</small></button>
+            <button type="button" class="choice" data-group="stage" data-value="mature" aria-pressed="false">接近採收<small>可以稍為控水</small></button>
+          </div>
+          <span class="hint" id="stageHint">沒有另外選的話，用今天是一年中的第幾天來判斷。</span>
+        </div>
         <div class="field">
           <label for="treeAge">樹大約幾年</label>
           <div class="stepper">
@@ -136,10 +149,11 @@
         <div class="field">
           <p class="choice-label" id="systemLabel">園裡用哪一種</p>
           <div class="choices" role="radiogroup" aria-labelledby="systemLabel">
-            <button type="button" class="choice is-selected" data-group="system" data-value="drip" aria-pressed="true">滴灌<small>水滴在根旁邊</small></button>
-            <button type="button" class="choice" data-group="system" data-value="microSprinkler" aria-pressed="false">微噴<small>噴在樹下</small></button>
-            <button type="button" class="choice" data-group="system" data-value="sprinkler" aria-pressed="false">噴灌<small>噴在樹冠上</small></button>
+            <button type="button" class="choice is-selected" data-group="system" data-value="drip" aria-pressed="true">滴灌<small>最省水</small></button>
+            <button type="button" class="choice" data-group="system" data-value="microSprinkler" aria-pressed="false">微噴<small>用水量中等</small></button>
+            <button type="button" class="choice" data-group="system" data-value="sprinkler" aria-pressed="false">噴灌<small>最耗水</small></button>
           </div>
+          <span class="hint">同樣讓土裡增加 10 毫米的水。滴灌直接到根旁，浪費少；噴在樹冠上會被葉子擋住，所以要開比較多水。</span>
         </div>
       </section>
 
@@ -154,9 +168,9 @@
     <button type="button" class="again" id="againButton">改條件再算一次</button>
   </div>
 
-  <script src="../js/parameters.js?v=20260929"></script>
-  <script src="../js/location.js?v=20260929"></script>
-  <script src="../js/calculator.js?v=20260929"></script>
-  <script src="farmer.js?v=20260929"></script>
+  <script src="../js/parameters.js?v=20260929c"></script>
+  <script src="../js/location.js?v=20260929c"></script>
+  <script src="../js/calculator.js?v=20260929c"></script>
+  <script src="farmer.js?v=20260929c"></script>
 </body>
 </html>

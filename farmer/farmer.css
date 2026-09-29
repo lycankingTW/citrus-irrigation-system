@@ -39,6 +39,12 @@ body {
     padding: 28px 20px 24px;
 }
 
+.today-label {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
 .site-logo {
     width: 96px;
     height: 96px;

@@ -124,6 +124,14 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
         };
     }
 
+    const STAGE_PRESETS = {
+        prebud: { name: '萌芽前', baseKc: 0.3, cd: 'd' },
+        spring: { name: '春梢萌發', baseKc: 0.4, cd: 'mix' },
+        shoot: { name: '枝梢旺盛', baseKc: 0.9, cd: 'c' },
+        fruit: { name: '果實膨大至轉色', baseKc: 1.35, cd: 'c' },
+        mature: { name: '成熟', baseKc: 0.65, cd: 'd' }
+    };
+
     function formatNumber(value, digits) {
         return Number(value).toFixed(digits);
     }
@@ -200,8 +208,8 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
             if (day.irrigated) {
                 this.addCalculationStep(
                     '建議灌溉',
-                    `耗水量 ${formatNumber(day.deficitBefore, 1)} mm 大於 RAM ${formatNumber(day.ram, 1)} mm。I = ${formatNumber(context.irrigationDepth, 1)} × ${formatNumber(context.efficiency, 3)} − ${formatNumber(context.interception, 2)} = ${formatNumber(day.irrigation, 2)} mm。${context.efficiencyAdjusted ? '輸入的效率已調整到此系統的文件範圍。' : ''}`,
-                    'I = uI × 灌溉效率 − 植物截留量 INi'
+                    `耗水量 ${formatNumber(day.deficitBefore, 1)} mm 大於 RAM ${formatNumber(day.ram, 1)} mm。要讓土裡增加 ${formatNumber(day.soilGain, 1)} mm，水源要準備 ${formatNumber(day.appliedDepth, 1)} mm。${context.efficiencyAdjusted ? '輸入的效率已調整到此系統的文件範圍。' : ''}`,
+                    '水源深度 = (要進入土裡的水 + 樹冠截留) / 灌溉效率。效率越高、截留越少，水源用得越少'
                 );
                 this.addCalculationStep(
                     '灌溉後水分平衡',
@@ -228,8 +236,9 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
             }
 
             this.calculationResults = {
-                irrigationDepth: day.irrigation,
-                irrigationAmount: day.irrigation,
+                irrigationDepth: day.appliedDepth,
+                irrigationAmount: day.appliedDepth,
+                soilGain: day.soilGain,
                 irrigationLiters: day.litersPerPlant,
                 treesPerFen: day.treesPerFen,
                 tonsPerFen: day.tonsPerFen,
@@ -314,15 +323,19 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 emitterPosition: position,
                 interception,
                 irrigationDepth: Math.max(0, this.number(parameters.irrigationDepth, CALCULATION_CONSTANTS.DEFAULT_IRRIGATION_DEPTH)),
-                efficiencyAdjusted
+                efficiencyAdjusted,
+                stageMode: STAGE_PRESETS[parameters.stageMode] ? parameters.stageMode : 'auto'
             };
         }
 
         evaluateDay(x, previousDeficit, rainfall, context) {
             const limits = kcLimits(context.plantAge, context.densityLevel);
-            const baseKc = interpolate(x, KC_CURVE.days, KC_CURVE.values);
+            const preset = context.stageMode && context.stageMode !== 'auto' ? STAGE_PRESETS[context.stageMode] : null;
+            const baseKc = preset ? preset.baseKc : interpolate(x, KC_CURVE.days, KC_CURVE.values);
             const kc = scaleKc(baseKc, limits);
-            const cd = coefficientAt(x, context.c, context.d);
+            const cd = preset
+                ? (preset.cd === 'c' ? context.c : preset.cd === 'd' ? context.d : (context.c + context.d) / 2)
+                : coefficientAt(x, context.c, context.d);
             const fc = context.fc;
             const ram = fc * cd;
             const etoResult = referenceEvapotranspiration(x);
@@ -345,14 +358,15 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
             let irrigation = 0;
             let deficit = deficitBefore;
             const irrigated = deficitBefore > ram;
+            let soilGain = 0;
+            let appliedDepth = 0;
             if (irrigated) {
-                irrigation = context.irrigationDepth * context.efficiency - context.interception;
-                if (irrigation < 0) {
-                    irrigation = 0;
-                }
-                deficit = previousDeficit + etc - pe - irrigation;
+                soilGain = context.irrigationDepth;
+                appliedDepth = (soilGain + context.interception) / context.efficiency;
+                irrigation = soilGain;
+                deficit = previousDeficit + etc - pe - soilGain;
             }
-            const litersPerPlant = irrigation * (10000 / context.plantDensity);
+            const litersPerPlant = appliedDepth * (10000 / context.plantDensity);
             const fenTotals = fenWaterTotals(litersPerPlant, context.plantDensity);
             return {
                 baseKc,
@@ -369,13 +383,15 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 pe,
                 deficitBefore,
                 deficit,
-                irrigation,
+                irrigation: appliedDepth,
+                soilGain,
+                appliedDepth,
                 irrigated,
                 litersPerPlant,
                 treesPerFen: fenTotals.treesPerFen,
                 tonsPerFen: fenTotals.tonsPerFen,
-                kcStage: stageName(x, KC_STAGES),
-                ramStage: stageName(x, RAM_STAGES),
+                kcStage: preset ? preset.name : stageName(x, KC_STAGES),
+                ramStage: preset ? preset.name : stageName(x, RAM_STAGES),
                 soilName: SOIL_TYPE_PARAMETERS[context.soilType].name
             };
         }
@@ -400,7 +416,7 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 recommendations.push({
                     type: 'warning',
                     title: '建議今日灌溉',
-                    message: `耗水量 ${formatNumber(day.deficitBefore, 1)} mm 已超過耗水限值 ${formatNumber(day.ram, 1)} mm。請灌 ${formatNumber(day.irrigation, 1)} mm（約 ${formatNumber(day.litersPerPlant, 1)} L/株，一分地約 ${formatNumber(day.tonsPerFen, 1)} 噸）。`,
+                    message: `耗水量 ${formatNumber(day.deficitBefore, 1)} mm 已超過耗水限值 ${formatNumber(day.ram, 1)} mm。水源要準備 ${formatNumber(day.appliedDepth, 1)} mm（約 ${formatNumber(day.litersPerPlant, 1)} L/株，一分地約 ${formatNumber(day.tonsPerFen, 1)} 噸）。滴灌效率高、截留少，同樣讓土裡增加 ${formatNumber(day.soilGain, 1)} mm 時，用水量最少。`,
                     icon: 'fas fa-tint'
                 });
                 if (day.deficit > day.ram) {
@@ -464,6 +480,10 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
         describeDate(dateString) {
             const x = dayIndexFromDate(dateString);
             return `年積日 ${x}（1 月 1 日為 0）：${stageName(x, KC_STAGES)}；耗水限值時期為${stageName(x, RAM_STAGES)}`;
+        },
+        stageOnDate(dateString) {
+            const x = dayIndexFromDate(dateString);
+            return stageName(x, KC_STAGES);
         }
     };
 
