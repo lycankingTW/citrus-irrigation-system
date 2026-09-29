@@ -10,7 +10,11 @@
 function initializeForm() {
     setDefaultValues();
     bindEventListeners();
-    document.getElementById('currentDate').value = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('currentDate');
+    if (dateInput && !dateInput.value && window.irrigationFormula) {
+        dateInput.value = window.irrigationFormula.localDateISO();
+    }
+    refreshDerivedInputs();
     initializeTooltips();
     console.log('表單初始化完成');
 }
@@ -31,16 +35,32 @@ function setDefaultValues() {
 /**
  * 綁定事件監聽器
  */
+let applyingManagementPreset = false;
+
 function bindEventListeners() {
     const parameterInputs = document.querySelectorAll('input, select');
     parameterInputs.forEach(input => {
         input.addEventListener('change', onParameterChange);
         input.addEventListener('input', onParameterInput);
     });
-    
-    document.getElementById('growthStage').addEventListener('change', onGrowthStageChange);
+
     document.getElementById('soilType').addEventListener('change', onSoilTypeChange);
     document.getElementById('irrigationSystem').addEventListener('change', onIrrigationSystemChange);
+    document.getElementById('managementGoal').addEventListener('change', onManagementGoalChange);
+    document.getElementById('emitterPosition').addEventListener('change', onEmitterPositionChange);
+    document.getElementById('useDefaultDeficit').addEventListener('change', refreshDerivedInputs);
+    document.getElementById('chart-tab').addEventListener('shown.bs.tab', () => {
+        if (latestWaterBalance) {
+            renderWaterBalanceChart(latestWaterBalance);
+        }
+    });
+    ['soilDepth', 'cValue', 'dValue', 'plantAge', 'currentDate'].forEach(id => {
+        const element = document.getElementById(id);
+        element.addEventListener('input', refreshDerivedInputs);
+        element.addEventListener('change', refreshDerivedInputs);
+    });
+    document.getElementById('cValue').addEventListener('input', markManagementCustom);
+    document.getElementById('dValue').addEventListener('input', markManagementCustom);
 }
 
 /**
@@ -63,30 +83,123 @@ function onParameterInput(event) {
 }
 
 /**
- * 生育期變更處理
- */
-function onGrowthStageChange(event) {
-    const stage = event.target.value;
-    const stageInfo = GROWTH_STAGE_PARAMETERS[stage];
-    showParameterInfo('生育期資訊', stageInfo.description);
-}
-
-/**
  * 土壤類型變更處理
  */
 function onSoilTypeChange(event) {
-    const soilType = event.target.value;
-    const soilInfo = SOIL_TYPE_PARAMETERS[soilType];
-    showParameterInfo('土壤類型資訊', soilInfo.description);
+    const soilInfo = SOIL_TYPE_PARAMETERS[event.target.value];
+    if (soilInfo) {
+        showParameterInfo('土壤質地', soilInfo.description);
+    }
+    refreshDerivedInputs();
 }
 
 /**
  * 灌溉系統變更處理
  */
 function onIrrigationSystemChange(event) {
-    const system = event.target.value;
-    const systemInfo = IRRIGATION_SYSTEM_PARAMETERS[system];
-    showParameterInfo('灌溉系統資訊', systemInfo.description);
+    const systemInfo = IRRIGATION_SYSTEM_PARAMETERS[event.target.value];
+    if (!systemInfo) {
+        return;
+    }
+    const efficiency = document.getElementById('systemEfficiency');
+    efficiency.min = systemInfo.efficiencyMin * 100;
+    efficiency.max = systemInfo.efficiencyMax * 100;
+    efficiency.value = systemInfo.efficiency * 100;
+    document.getElementById('emitterPosition').value = systemInfo.defaultPosition;
+    applyEmitterInterception();
+    showParameterInfo('灌溉系統', systemInfo.description);
+}
+
+function onManagementGoalChange() {
+    const preset = MANAGEMENT_PRESETS[document.getElementById('managementGoal').value];
+    if (!preset) {
+        return;
+    }
+    applyingManagementPreset = true;
+    document.getElementById('cValue').value = preset.c.toFixed(2);
+    document.getElementById('dValue').value = preset.d.toFixed(2);
+    applyingManagementPreset = false;
+    refreshDerivedInputs();
+}
+
+function markManagementCustom() {
+    if (!applyingManagementPreset) {
+        document.getElementById('managementGoal').value = 'custom';
+    }
+}
+
+function onEmitterPositionChange() {
+    applyEmitterInterception(true);
+}
+
+function applyEmitterInterception(resetBelow) {
+    const position = document.getElementById('emitterPosition').value;
+    const interception = document.getElementById('canopyInterception');
+    if (position === 'above') {
+        interception.value = INTERCEPTION.aboveCanopy;
+        interception.readOnly = true;
+        interception.min = INTERCEPTION.aboveCanopy;
+        interception.max = INTERCEPTION.aboveCanopy;
+        return;
+    }
+    interception.readOnly = false;
+    interception.min = INTERCEPTION.belowCanopyMin;
+    interception.max = INTERCEPTION.belowCanopyMax;
+    const current = parseFloat(interception.value);
+    if (resetBelow || !Number.isFinite(current) || current < 0.5 || current > 1) {
+        interception.value = INTERCEPTION.belowCanopyDefault;
+    }
+}
+
+function describeCoefficient(value) {
+    let nearest = CD_TENSION_TABLE[0];
+    CD_TENSION_TABLE.forEach(row => {
+        if (Math.abs(row.value - value) < Math.abs(nearest.value - value)) {
+            nearest = row;
+        }
+    });
+    return `最接近 ${nearest.value.toFixed(2)}：${nearest.description}（約 ${nearest.tension} kPa）`;
+}
+
+function refreshDerivedInputs() {
+    if (!window.irrigationFormula) {
+        return;
+    }
+    const soilType = document.getElementById('soilType').value;
+    const depth = parseFloat(document.getElementById('soilDepth').value);
+    const d = parseFloat(document.getElementById('dValue').value);
+    const c = parseFloat(document.getElementById('cValue').value);
+    const age = parseFloat(document.getElementById('plantAge').value);
+    const fcHint = document.getElementById('fieldCapacityHint');
+    if (Number.isFinite(depth)) {
+        const fc = window.irrigationFormula.fieldCapacity(soilType, depth);
+        fcHint.textContent = `根層田間容水量 Fc = ${fc.toFixed(1)} mm`;
+        const deficit = document.getElementById('initialDeficit');
+        const useDefault = document.getElementById('useDefaultDeficit');
+        if (useDefault.checked && Number.isFinite(d)) {
+            deficit.value = (fc * d).toFixed(1);
+            deficit.readOnly = true;
+        } else {
+            deficit.readOnly = false;
+        }
+    }
+    document.getElementById('cValueHint').textContent = Number.isFinite(c)
+        ? `著果及果實發育期使用。${describeCoefficient(c)}`
+        : '著果及果實發育期使用';
+    document.getElementById('dValueHint').textContent = Number.isFinite(d)
+        ? `花芽分化、春梢與轉色採收期使用。${describeCoefficient(d)}`
+        : '花芽分化、春梢與轉色採收期使用';
+
+    const densityLevel = document.getElementById('densityLevel');
+    const densityGroup = document.getElementById('densityLevelGroup');
+    const applies = Number.isFinite(age) && age < 10;
+    densityLevel.disabled = !applies;
+    densityGroup.style.opacity = applies ? '1' : '0.55';
+
+    const dateValue = document.getElementById('currentDate').value;
+    if (dateValue) {
+        document.getElementById('stageHint').textContent = window.irrigationFormula.describeDate(dateValue);
+    }
 }
 
 /**
@@ -185,17 +298,37 @@ function hideInputError(element) {
  * 更新結果顯示
  */
 function updateResultsDisplay(results) {
-    // 更新主要結果卡片
-    document.getElementById('irrigationAmount').textContent = 
-        `${results.irrigationAmount.toFixed(1)} L/株`;
-    
-    document.getElementById('irrigationTime').textContent = 
-        `${Math.round(results.irrigationTime)} 分鐘`;
-    
-    document.getElementById('nextIrrigation').textContent = 
-        `${results.nextIrrigation} 天後`;
+    document.getElementById('irrigationAmount').textContent =
+        `${results.irrigationDepth.toFixed(1)} mm`;
+    document.getElementById('irrigationLiters').textContent = results.irrigated
+        ? `約 ${results.irrigationLiters.toFixed(1)} L/株`
+        : '今日不需灌溉';
 
-    // 添加動畫效果
+    document.getElementById('soilDeficit').textContent =
+        `${results.soilDeficit.toFixed(1)} mm`;
+    document.getElementById('deficitNote').textContent = results.irrigated
+        ? `灌溉前 ${results.deficitBefore.toFixed(1)} mm`
+        : '今日未灌溉';
+
+    document.getElementById('ramLimit').textContent =
+        `${results.ram.toFixed(1)} mm`;
+    document.getElementById('nextIrrigation').textContent = results.irrigated
+        ? '已超過，建議今天灌'
+        : `若無降雨，${results.nextIrrigation}`;
+
+    const summary = document.getElementById('dailySummary');
+    if (summary) {
+        summary.className = 'alert alert-light border mb-4';
+        summary.innerHTML = [
+            `生育期 ${results.kcStage}`,
+            `Kc ${results.kc.toFixed(3)}`,
+            `ETo ${results.eto.toFixed(2)} mm`,
+            `ETc ${results.etc.toFixed(2)} mm`,
+            `Ks ${results.ks.toFixed(3)}`,
+            `有效雨量 ${results.pe.toFixed(1)} mm`
+        ].join('　');
+    }
+
     animateResultCards();
 }
 
@@ -278,26 +411,37 @@ function createRecommendationElement(recommendation, index) {
     return div;
 }
 
+let latestWaterBalance = null;
+let waterChartInstance = null;
+
 /**
- * 更新水分平衡圖表
+ * 更新水分平衡圖表。分頁隱藏時畫布尺寸為 0，等分頁顯示後再畫一次。
  */
 function updateWaterBalanceChart(results) {
+    latestWaterBalance = results;
+    renderWaterBalanceChart(results);
+}
+
+function renderWaterBalanceChart(results) {
     const chartContainer = document.getElementById('waterBalanceChart');
-    
-    // 清除現有內容
-    chartContainer.innerHTML = '<canvas id="waterChart" width="400" height="200"></canvas>';
-    
+    if (waterChartInstance) {
+        waterChartInstance.destroy();
+        waterChartInstance = null;
+    }
+    chartContainer.innerHTML = '<canvas id="waterChart"></canvas>';
+    chartContainer.style.height = '280px';
+    chartContainer.style.width = '100%';
     const ctx = document.getElementById('waterChart').getContext('2d');
     
     const chartData = {
-        labels: ['田間容水量', '目前含水量', '凋萎點', '建議灌溉量'],
+        labels: ['田間容水量 Fc', '耗水限值 RAM', '灌溉前耗水量', '建議灌溉量'],
         datasets: [{
-            label: '水分狀況 (mm)',
+            label: '水分 (mm)',
             data: [
                 results.waterBalance.fieldCapacity,
-                results.waterBalance.currentWater,
-                results.waterBalance.wiltingPoint,
-                results.irrigationAmount * 0.4 // 概估轉換
+                results.waterBalance.ram,
+                results.waterBalance.deficitBefore,
+                results.waterBalance.irrigation
             ],
             backgroundColor: [
                 'rgba(76, 175, 80, 0.8)',
@@ -315,7 +459,7 @@ function updateWaterBalanceChart(results) {
         }]
     };
 
-    new Chart(ctx, {
+    waterChartInstance = new Chart(ctx, {
         type: 'bar',
         data: chartData,
         options: {
@@ -335,7 +479,7 @@ function updateWaterBalanceChart(results) {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: '水分含量 (mm)'
+                        text: '深度 (mm)'
                     }
                 }
             }
@@ -353,8 +497,13 @@ function resetForm() {
         input.classList.remove('is-valid', 'is-invalid');
     });
 
-    // 設定預設值
+    const useDefault = document.getElementById('useDefaultDeficit');
+    if (useDefault) {
+        useDefault.checked = true;
+    }
     setDefaultValues();
+    applyEmitterInterception(true);
+    refreshDerivedInputs();
 
     // 清除結果顯示
     clearResults();
@@ -367,9 +516,17 @@ function resetForm() {
  * 清除結果
  */
 function clearResults() {
-    document.getElementById('irrigationAmount').textContent = '-- L/株';
-    document.getElementById('irrigationTime').textContent = '-- 分鐘';
-    document.getElementById('nextIrrigation').textContent = '-- 天後';
+    document.getElementById('irrigationAmount').textContent = '-- mm';
+    document.getElementById('irrigationLiters').textContent = '--';
+    document.getElementById('soilDeficit').textContent = '-- mm';
+    document.getElementById('deficitNote').textContent = '灌溉後';
+    document.getElementById('ramLimit').textContent = '-- mm';
+    document.getElementById('nextIrrigation').textContent = '--';
+    const summary = document.getElementById('dailySummary');
+    if (summary) {
+        summary.className = 'alert alert-light border mb-4';
+        summary.textContent = '設定參數後按「開始計算」，這裡會顯示年積日、Kc、ETo 與有效雨量。';
+    }
 
     document.getElementById('calculationSteps').innerHTML = `
         <div class="alert alert-info">
@@ -385,7 +542,14 @@ function clearResults() {
         </div>
     `;
 
-    document.getElementById('waterBalanceChart').innerHTML = `
+    latestWaterBalance = null;
+    if (waterChartInstance) {
+        waterChartInstance.destroy();
+        waterChartInstance = null;
+    }
+    const chartBox = document.getElementById('waterBalanceChart');
+    chartBox.style.height = '';
+    chartBox.innerHTML = `
         <div class="chart-placeholder">
             <i class="fas fa-chart-line fa-3x text-muted"></i>
             <p class="text-muted mt-2">計算完成後將顯示水分平衡圖表</p>
@@ -499,10 +663,10 @@ function animateCalculationSteps() {
 function initializeTooltips() {
     // 為需要說明的元素添加工具提示
     const tooltipElements = [
-        { id: 'growthStage', text: '不同生育期的需水量不同' },
-        { id: 'plantAge', text: '樹齡影響根系深度和需水量' },
-        { id: 'soilType', text: '土壤類型決定保水和排水特性' },
-        { id: 'irrigationSystem', text: '不同灌溉系統的效率不同' }
+        { id: 'plantAge', text: '樹齡決定 Kc 曲線的上下限' },
+        { id: 'soilType', text: '質地係數乘上根深就是田間容水量' },
+        { id: 'irrigationSystem', text: '系統決定效率範圍與預設截留量' },
+        { id: 'cValue', text: '著果及果實發育期的耗水限值係數' }
     ];
 
     tooltipElements.forEach(item => {
@@ -540,10 +704,17 @@ function loadParameters() {
         const parameters = JSON.parse(saved);
         Object.keys(parameters).forEach(key => {
             const element = document.getElementById(key);
-            if (element) {
+            if (!element) {
+                return;
+            }
+            if (element.type === 'checkbox') {
+                element.checked = Boolean(parameters[key]);
+            } else {
                 element.value = parameters[key];
             }
         });
+        applyEmitterInterception(false);
+        refreshDerivedInputs();
         showSuccessMessage('參數設定已載入');
     } else {
         showErrorMessage('沒有找到儲存的參數設定');
@@ -597,7 +768,6 @@ function updateParameterDescription(element) {
         ]
     };
 
-    // 根據參數ID和數值找出對應的描述和建議
     if (parameterRanges[id]) {
         const range = parameterRanges[id].find(r => value > r.min && value <= r.max);
         if (range) {
@@ -606,7 +776,6 @@ function updateParameterDescription(element) {
         }
     }
 
-    // 更新UI顯示
     updateParameterUI(element, description, suggestion);
 }
 
@@ -617,8 +786,13 @@ function updateParameterDescription(element) {
  * @param {string} suggestion - 建議措施
  */
 function updateParameterUI(element, description, suggestion) {
-    // 找到或創建描述容器
     let descContainer = document.getElementById(`${element.id}-description`);
+    if (!description) {
+        if (descContainer) {
+            descContainer.remove();
+        }
+        return;
+    }
     if (!descContainer) {
         descContainer = document.createElement('div');
         descContainer.id = `${element.id}-description`;
