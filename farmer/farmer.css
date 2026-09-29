@@ -39,6 +39,15 @@ body {
     padding: 28px 20px 24px;
 }
 
+.site-logo {
+    width: 96px;
+    height: 96px;
+    display: block;
+    margin-bottom: 12px;
+    background: #fff;
+    border-radius: 50%;
+}
+
 .top p,
 .top a {
     margin: 0;
