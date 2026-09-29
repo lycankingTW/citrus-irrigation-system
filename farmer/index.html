@@ -2,160 +2,16 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0c2f14">
-  <title>今天要不要灌水 | 柑橘園簡易版</title>
-  <meta name="description" content="給柑橘農使用的簡易灌溉建議。選果園狀況和今天雨量，直接看每株要灌幾公升。">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='34' r='22' fill='%23f0a202'/%3E%3Cpath d='M32 8c2 8 8 12 14 12-6 2-10 8-10 14' fill='none' stroke='%231b5e20' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="farmer.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今天要不要灌水 | 柑橘園農民版</title>
 </head>
 <body>
-  <div class="page">
-    <header class="top">
-      <p class="org">苗栗區農業改良場</p>
-      <h1>今天要不要灌水</h1>
-      <p class="lead">選一選果園和今天的雨，按一下就知道每株大約灌幾公升。</p>
-      <a class="top-link" href="../index.html">需要細項時，打開完整計算版</a>
-    </header>
-
-    <p id="savedNote" class="saved-note" hidden>已帶入你上次儲存的果園設定。雨量和土壤乾濕請依今天情況再選。</p>
-
-    <form id="farmerForm">
-      <section class="card">
-        <h2><span class="step-no">1</span>今天</h2>
-        <div class="field">
-          <label for="currentDate">日期</label>
-          <input type="date" id="currentDate" required>
-        </div>
-        <div class="field">
-          <p class="choice-label" id="rainLabel">今天下雨了嗎？</p>
-          <div class="choices" role="radiogroup" aria-labelledby="rainLabel">
-            <button type="button" class="choice is-selected" data-group="rain" data-value="none" aria-pressed="true">沒下雨</button>
-            <button type="button" class="choice" data-group="rain" data-value="trace" aria-pressed="false">只有一點<small>不到 3 毫米，幾乎不算</small></button>
-            <button type="button" class="choice" data-group="rain" data-value="light" aria-pressed="false">小雨<small>大約 10 毫米</small></button>
-            <button type="button" class="choice" data-group="rain" data-value="custom" aria-pressed="false">我知道毫米數</button>
-          </div>
-          <div id="rainCustomWrap" class="field hidden" style="margin-top: 10px;">
-            <label for="rainCustom">今天雨量（毫米）</label>
-            <input type="number" id="rainCustom" min="0" max="500" step="0.1" value="0" inputmode="decimal">
-          </div>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2><span class="step-no">2</span>果樹</h2>
-        <div class="field">
-          <label for="treeAge">樹大約幾年</label>
-          <div class="stepper">
-            <button type="button" data-target="treeAge" data-step="-1" aria-label="少一年">−</button>
-            <input type="number" id="treeAge" min="1" max="50" value="8" inputmode="numeric">
-            <button type="button" data-target="treeAge" data-step="1" aria-label="多一年">+</button>
-          </div>
-        </div>
-        <div class="field">
-          <p class="choice-label" id="densityLabel">一公頃大概幾株</p>
-          <div class="choices" role="radiogroup" aria-labelledby="densityLabel">
-            <button type="button" class="choice" data-group="density" data-value="300" aria-pressed="false">約 300<small>種得比較開</small></button>
-            <button type="button" class="choice is-selected" data-group="density" data-value="400" aria-pressed="true">約 400<small>常見距離</small></button>
-            <button type="button" class="choice" data-group="density" data-value="600" aria-pressed="false">約 600<small>種得比較密</small></button>
-            <button type="button" class="choice" data-group="density" data-value="custom" aria-pressed="false">自己填</button>
-          </div>
-          <div id="densityCustomWrap" class="field hidden" style="margin-top: 10px;">
-            <label for="densityCustom">一公頃幾株</label>
-            <input type="number" id="densityCustom" min="100" max="2000" step="10" value="400" inputmode="numeric">
-          </div>
-        </div>
-        <div id="youngDensity" class="field hidden">
-          <p class="choice-label" id="spacingLabel">未滿 10 年的樹，種得密還是疏？</p>
-          <div class="choices" role="radiogroup" aria-labelledby="spacingLabel">
-            <button type="button" class="choice is-selected" data-group="youngSpacing" data-value="sparse" aria-pressed="true">比較疏</button>
-            <button type="button" class="choice" data-group="youngSpacing" data-value="dense" aria-pressed="false">比較密</button>
-          </div>
-          <span class="hint">這只影響幼樹要喝多少水。</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2><span class="step-no">3</span>土和果園</h2>
-        <div class="field">
-          <p class="choice-label" id="soilLabel">土是哪一種</p>
-          <div class="choices" role="radiogroup" aria-labelledby="soilLabel">
-            <button type="button" class="choice" data-group="soil" data-value="sand" aria-pressed="false">砂土<small>抓起來散</small></button>
-            <button type="button" class="choice is-selected" data-group="soil" data-value="loam" aria-pressed="true">壤土<small>最常見</small></button>
-            <button type="button" class="choice" data-group="soil" data-value="clay" aria-pressed="false">黏土<small>濕的時候黏手</small></button>
-          </div>
-          <details class="more">
-            <summary>其他土質</summary>
-            <div class="choices" role="radiogroup" aria-label="其他土質" style="margin-top: 10px;">
-              <button type="button" class="choice" data-group="soil" data-value="sandyLoam" aria-pressed="false">砂壤土</button>
-              <button type="button" class="choice" data-group="soil" data-value="siltLoam" aria-pressed="false">坋壤土</button>
-              <button type="button" class="choice" data-group="soil" data-value="clayLoam" aria-pressed="false">黏壤土</button>
-              <button type="button" class="choice" data-group="soil" data-value="siltClay" aria-pressed="false">坋黏土</button>
-            </div>
-          </details>
-        </div>
-        <div class="field">
-          <p class="choice-label" id="rootLabel">根大概多深</p>
-          <div class="choices three" role="radiogroup" aria-labelledby="rootLabel">
-            <button type="button" class="choice" data-group="root" data-value="shallow" aria-pressed="false">淺<small>約 40 公分</small></button>
-            <button type="button" class="choice is-selected" data-group="root" data-value="normal" aria-pressed="true">一般<small>約 60 公分</small></button>
-            <button type="button" class="choice" data-group="root" data-value="deep" aria-pressed="false">深<small>約 90 公分</small></button>
-          </div>
-        </div>
-        <div class="field">
-          <p class="choice-label" id="situationLabel">果園情況</p>
-          <div class="choices" role="radiogroup" aria-labelledby="situationLabel">
-            <button type="button" class="choice is-selected" data-group="situation" data-value="general" aria-pressed="true">平地一般果園</button>
-            <button type="button" class="choice" data-group="situation" data-value="shallow" aria-pressed="false">土層比較淺</button>
-            <button type="button" class="choice" data-group="situation" data-value="hillside" aria-pressed="false">山坡地，水不夠</button>
-          </div>
-        </div>
-        <div class="field">
-          <p class="choice-label" id="moistureLabel">現在土摸起來</p>
-          <div class="choices" role="radiogroup" aria-labelledby="moistureLabel">
-            <button type="button" class="choice" data-group="moisture" data-value="wet" aria-pressed="false">還濕</button>
-            <button type="button" class="choice is-selected" data-group="moisture" data-value="normal" aria-pressed="true">普通</button>
-            <button type="button" class="choice" data-group="moisture" data-value="dry" aria-pressed="false">有點乾</button>
-            <button type="button" class="choice" data-group="moisture" data-value="veryDry" aria-pressed="false">很乾、葉子軟</button>
-          </div>
-          <span class="hint">不確定就選「普通」。</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2><span class="step-no">4</span>怎麼灌</h2>
-        <div class="field">
-          <p class="choice-label" id="systemLabel">園裡用哪一種</p>
-          <div class="choices" role="radiogroup" aria-labelledby="systemLabel">
-            <button type="button" class="choice is-selected" data-group="system" data-value="drip" aria-pressed="true">滴灌<small>水滴在根旁邊</small></button>
-            <button type="button" class="choice" data-group="system" data-value="microSprinkler" aria-pressed="false">微噴<small>噴在樹下</small></button>
-            <button type="button" class="choice" data-group="system" data-value="sprinkler" aria-pressed="false">噴灌<small>噴在樹冠上</small></button>
-          </div>
-        </div>
-      </section>
-
-      <button class="go" type="submit">看今天要不要灌</button>
-    </form>
-
-    <aside class="outcome">
-      <div class="outcome-placeholder">
-        <strong>結果會出現在這裡</strong>
-        選好果園和今天的雨，按「看今天要不要灌」。
-      </div>
-      <section id="result" class="result" hidden aria-live="polite"></section>
-      <details class="details" id="detailBox" hidden>
-        <summary>為什麼是這個結果</summary>
-        <ul id="detailList"></ul>
-      </details>
-      <button type="button" class="again" id="againButton">改條件再算一次</button>
-    </aside>
-  </div>
-
-  <script src="../js/parameters.js"></script>
-  <script src="../js/calculator.js"></script>
-  <script src="farmer.js"></script>
+  <main>
+    <h1>農民版已改到 Streamlit</h1>
+    <p>這個靜態頁面不再計算灌溉。請在專案目錄執行：</p>
+    <pre>pip install -r requirements.txt
+streamlit run app.py</pre>
+    <p><a href="../index.html">回到完整計算版</a></p>
+  </main>
 </body>
 </html>

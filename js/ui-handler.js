@@ -301,7 +301,7 @@ function updateResultsDisplay(results) {
     document.getElementById('irrigationAmount').textContent =
         `${results.irrigationDepth.toFixed(1)} mm`;
     document.getElementById('irrigationLiters').textContent = results.irrigated
-        ? `約 ${results.irrigationLiters.toFixed(1)} L/株`
+        ? `約 ${results.irrigationLiters.toFixed(1)} L/株，一分地約 ${results.tonsPerFen.toFixed(1)} 噸`
         : '今日不需灌溉';
 
     document.getElementById('soilDeficit').textContent =

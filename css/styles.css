@@ -78,17 +78,21 @@ a {
     gap: 0.55rem;
 }
 
-.brand-mark {
-    width: 34px;
-    height: 34px;
+.brand-logo,
+.footer-logo {
+    height: 36px;
+    width: 36px;
+    background: #fff;
     border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: radial-gradient(circle at 35% 35%, #ffe08a, #f0a202 42%, #d97706);
-    color: var(--green-950);
-    box-shadow: inset 0 -6px 10px rgba(120, 60, 0, 0.18);
-    flex: 0 0 34px;
+    object-fit: cover;
+    flex: 0 0 36px;
+}
+
+.footer-logo {
+    height: 48px;
+    width: 48px;
+    margin-right: 8px;
+    flex: 0 0 48px;
 }
 
 .brand-text {
