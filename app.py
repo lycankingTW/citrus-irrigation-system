@@ -1,10 +1,3 @@
-"""柑橘園農民版。
-
-啟動：
-    pip install -r requirements.txt
-    streamlit run app.py
-"""
-
 from __future__ import annotations
 
 from datetime import date
@@ -53,6 +46,39 @@ STAGE_OPTIONS = [("照今天自動判斷", "auto")] + [
     (preset["name"], key) for key, preset in STAGE_PRESETS.items()
 ]
 DENSITY_OPTIONS = [("約 300 株，種得比較開", 300), ("約 400 株，常見距離", 400), ("約 600 株，種得比較密", 600), ("自己填", 0)]
+def _hide_streamlit_default_ui() -> None:
+    """隱藏 Streamlit 預設介面（只影響畫面，不是存取控制）。"""
+    st.markdown(
+        """
+        <style>
+            /* 頁首、漢堡選單、頁尾 */
+            #MainMenu,
+            header,
+            footer {
+                visibility: hidden;
+            }
+
+            /* 右上角工具列、頂端彩色裝飾條、頁首容器、Deploy 按鈕 */
+            [data-testid="stToolbar"],
+            [data-testid="stDecoration"],
+            [data-testid="stHeader"],
+            [data-testid="stAppDeployButton"] {
+                display: none !important;
+            }
+
+            /* 右上角「Running…」執行狀態 */
+            [data-testid="stStatusWidget"] {
+                visibility: hidden;
+            }
+
+            /* 頁首藏起來後，把內容往上移，少一塊空白 */
+            .block-container {
+                padding-top: 1.5rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 _LOCATE = st.components.v2.component(
     "farmer_geolocation",
@@ -184,6 +210,7 @@ def _show_result(result: IrrigationResult) -> None:
 
 
 def main() -> None:
+    _hide_streamlit_default_ui()
     today = date.today()
     st.title("今天要不要灌水")
     st.caption("苗栗區農業改良場")
