@@ -306,9 +306,18 @@ footer,
     box-shadow: 0 8px 18px rgba(27, 94, 32, 0.18);
 }
 
+.stApp button[kind="primary"] p,
+.stApp button[kind="primary"] span,
+.stApp button[kind="primary"] [data-testid="stMarkdownContainer"] p,
+.stApp button[kind="primary"] [data-testid="stMarkdownContainer"] span,
+.stApp button[kind="primary"]:hover p,
+.stApp button[kind="primary"]:hover span {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
 .stApp button[kind="primary"]:hover {
     background: var(--green-dark) !important;
-    color: #fff !important;
     border: 0 !important;
 }
 
@@ -321,10 +330,27 @@ footer,
     font-weight: 800 !important;
 }
 
+.stApp button[kind="secondary"] p,
+.stApp button[kind="secondary"] span,
+.stApp button[kind="secondary"] [data-testid="stMarkdownContainer"] p,
+.stApp button[kind="secondary"] [data-testid="stMarkdownContainer"] span,
+.stApp button[kind="secondary"]:hover p,
+.stApp button[kind="secondary"]:hover span {
+    color: #1b5e20 !important;
+    -webkit-text-fill-color: #1b5e20 !important;
+}
+
 .stApp button[kind="secondary"]:hover {
     background: var(--leaf) !important;
-    color: var(--green) !important;
     border: 2px solid var(--green) !important;
+}
+
+/* 下拉選單改用 React Aria，選項文字要壓成深色，底色保持白。 */
+.stApp [data-testid="stSelectbox"] [role="group"],
+.stApp [data-testid="stSelectbox"] input[role="combobox"] {
+    background-color: #ffffff !important;
+    color: #1c241c !important;
+    -webkit-text-fill-color: #1c241c !important;
 }
 
 .stApp button:focus-visible {
