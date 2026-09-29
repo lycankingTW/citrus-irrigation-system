@@ -326,7 +326,7 @@ function updateResultsDisplay(results) {
             `ETc ${results.etc.toFixed(2)} mm`,
             `Ks ${results.ks.toFixed(3)}`,
             `有效雨量 ${results.pe.toFixed(1)} mm`
-        ].join('　');
+        ].map((item) => `<span class="summary-chip">${item}</span>`).join('');
     }
 
     animateResultCards();
@@ -475,11 +475,21 @@ function renderWaterBalanceChart(results) {
                 }
             },
             scales: {
+                x: {
+                    ticks: {
+                        maxRotation: 40,
+                        minRotation: 0,
+                        font: { size: window.innerWidth < 576 ? 11 : 12 }
+                    }
+                },
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
                         text: '深度 (mm)'
+                    },
+                    ticks: {
+                        font: { size: window.innerWidth < 576 ? 11 : 12 }
                     }
                 }
             }
@@ -595,11 +605,7 @@ function showParameterInfo(title, message) {
  */
 function createToast(title, message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white bg-${type} border-0`;
-    toast.style.position = 'fixed';
-    toast.style.top = '20px';
-    toast.style.right = '20px';
-    toast.style.zIndex = '9999';
+    toast.className = `app-toast toast align-items-center text-white bg-${type} border-0`;
     
     toast.innerHTML = `
         <div class="d-flex">
