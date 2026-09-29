@@ -19,7 +19,7 @@ from citrus_farmer.model import (
     IrrigationResult,
     calculate,
 )
-from citrus_farmer.weather import MIAOLI_NAME, fetch_miaoli_station
+from citrus_farmer.weather import fetch_miaoli_station, fetch_nearest_station
 
 st.set_page_config(page_title="今天要不要灌水", page_icon="🌱", layout="centered")
 
@@ -54,6 +54,58 @@ STAGE_OPTIONS = [("照今天自動判斷", "auto")] + [
 ]
 DENSITY_OPTIONS = [("約 300 株，種得比較開", 300), ("約 400 株，常見距離", 400), ("約 600 株，種得比較密", 600), ("自己填", 0)]
 
+_LOCATE = st.components.v2.component(
+    "farmer_geolocation",
+    html='<button type="button" class="locate">用我的位置讀測站</button>',
+    css="""
+    button.locate {
+        width: 100%;
+        min-height: 48px;
+        border: 0;
+        border-radius: 8px;
+        background: #1b5e20;
+        color: white;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    button.locate:disabled { opacity: 0.7; }
+    """,
+    js="""
+    export default function(component) {
+        const { setTriggerValue, parentElement } = component;
+        const button = parentElement.querySelector("button.locate");
+        if (!button || button.dataset.bound) {
+            return;
+        }
+        button.dataset.bound = "1";
+        button.onclick = () => {
+            const label = "用我的位置讀測站";
+            const finish = (payload) => {
+                setTriggerValue("location", payload);
+                button.disabled = false;
+                button.textContent = label;
+            };
+            button.disabled = true;
+            button.textContent = "正在取得位置…";
+            if (!navigator.geolocation) {
+                finish({ error: "這個瀏覽器不能定位。可以改用苗栗農改場附近的測站。" });
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => finish({
+                    lat: pos.coords.latitude,
+                    lon: pos.coords.longitude,
+                    error: null
+                }),
+                () => finish({ error: "沒有拿到位置。請允許定位，或改用苗栗農改場附近的測站。" }),
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+        };
+    }
+    """,
+)
+
 
 def _label(options, value):
     for label, item in options:
@@ -67,6 +119,15 @@ def _value(options, label):
         if text == label:
             return item
     return options[0][1]
+
+
+def _load_station(loader) -> None:
+    try:
+        st.session_state["station_reading"] = loader()
+        st.session_state.pop("station_error", None)
+    except Exception:
+        st.session_state.pop("station_reading", None)
+        st.session_state["station_error"] = "測站暫時讀不到，請改選雨量。"
 
 
 def _rain_mm(choice: str, custom_mm: float, use_station: bool) -> float:
@@ -129,19 +190,30 @@ def main() -> None:
 
     st.subheader("1. 今天")
     st.write(f"今天是 {today.year}年{today.month}月{today.day}日")
-    if st.button("改用苗栗農改場附近測站"):
-        try:
-            st.session_state["station_reading"] = fetch_miaoli_station()
-            st.session_state.pop("station_error", None)
-        except Exception:
-            st.session_state.pop("station_reading", None)
-            st.session_state["station_error"] = "測站暫時讀不到，請改選雨量。"
+    here, miaoli = st.columns(2)
+    with here:
+        located = _LOCATE(on_location_change=lambda: None)
+    with miaoli:
+        use_miaoli = st.button("改用苗栗農改場附近測站", use_container_width=True)
+    if use_miaoli:
+        _load_station(lambda: fetch_miaoli_station())
+    location = getattr(located, "location", None) if located is not None else None
+    if isinstance(location, dict):
+        token = (location.get("lat"), location.get("lon"), location.get("error"))
+        if st.session_state.get("location_token") != token:
+            st.session_state["location_token"] = token
+            if location.get("error"):
+                st.session_state["station_error"] = location["error"]
+            elif location.get("lat") is not None:
+                key = (round(float(location["lat"]), 4), round(float(location["lon"]), 4))
+                st.session_state["located_key"] = key
+                _load_station(lambda: fetch_nearest_station(key[0], key[1], "你的位置"))
     station = st.session_state.get("station_reading")
     if st.session_state.get("station_error"):
         st.error(st.session_state["station_error"])
     if station is not None:
         st.info(
-            f"{station.name}測站，距離{MIAOLI_NAME} {station.distance_km:.1f} 公里。"
+            f"{station.name}測站，距離{station.place_name} {station.distance_km:.1f} 公里。"
             f"24 小時雨量 {station.rain_mm:.1f} 毫米。更新時間 {station.observed_at or '測站未提供'}。"
         )
 
