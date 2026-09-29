@@ -186,6 +186,47 @@ input[type="number"] {
     display: none;
 }
 
+.station-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.station-btn {
+    min-height: 52px;
+    border-radius: 12px;
+    border: 0;
+    background: var(--green);
+    color: white;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.station-btn.secondary {
+    background: white;
+    color: var(--green);
+    border: 2px solid var(--green);
+}
+
+.station-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.station-card {
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--leaf);
+    border: 2px solid var(--green);
+}
+
+.station-card strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
 .go {
     width: 100%;
     min-height: 64px;
