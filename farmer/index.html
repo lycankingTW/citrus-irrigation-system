@@ -12,7 +12,7 @@
     <header class="top">
       <p class="org">苗栗區農業改良場</p>
       <h1>今天要不要灌水</h1>
-      <p class="lead">選一選果園和今天的雨，按一下就知道每株大約灌幾公升。</p>
+      <p class="lead">可讀附近農業氣象站的雨量，再按一下就知道每株大約灌幾公升。</p>
       <a class="top-link" href="../index.html">需要細項時，打開完整計算版</a>
     </header>
 
@@ -26,8 +26,18 @@
           <input type="date" id="currentDate" required>
         </div>
         <div class="field">
+          <p class="choice-label">附近農業氣象站</p>
+          <div class="station-actions">
+            <button type="button" class="station-btn" id="locateStation">用我的位置讀測站</button>
+            <button type="button" class="station-btn secondary" id="miaoliStation">改用苗栗農改場附近</button>
+          </div>
+          <p id="stationStatus" class="hint">讀到測站後，會用它的 24 小時雨量來判斷要不要灌。</p>
+          <div id="stationCard" class="station-card hidden"></div>
+        </div>
+        <div class="field">
           <p class="choice-label" id="rainLabel">今天下雨了嗎？</p>
           <div class="choices" role="radiogroup" aria-labelledby="rainLabel">
+            <button type="button" class="choice hidden" id="stationRainChoice" data-group="rain" data-value="station" aria-pressed="false">用測站雨量<small id="stationRainLabel">--</small></button>
             <button type="button" class="choice is-selected" data-group="rain" data-value="none" aria-pressed="true">沒下雨</button>
             <button type="button" class="choice" data-group="rain" data-value="trace" aria-pressed="false">只有一點<small>不到 3 毫米，幾乎不算</small></button>
             <button type="button" class="choice" data-group="rain" data-value="light" aria-pressed="false">小雨<small>大約 10 毫米</small></button>
@@ -144,6 +154,7 @@
   </div>
 
   <script src="../js/parameters.js"></script>
+  <script src="../js/location.js"></script>
   <script src="../js/calculator.js"></script>
   <script src="farmer.js"></script>
 </body>
