@@ -19,8 +19,8 @@
   <link rel="stylesheet" href="css/components.css">
   
   <!-- SEO Meta Tags -->
-  <meta name="description" content="專業的柑橘園智能灌溉計算系統，基於FAO-56標準，提供精確的灌溉需求計算和管理建議">
-  <meta name="keywords" content="柑橘園,智能灌溉,蒸發散,FAO-56,農業,水分管理">
+  <meta name="description" content="柑橘園智能灌溉計算系統，依逐日作物係數、耗水限值與土壤水分收支計算灌溉深度">
+  <meta name="keywords" content="柑橘園,智能灌溉,作物係數,耗水限值,土壤水分收支,農業">
   <meta name="author" content="林鈺荏 - 苗栗區農業改良場">
 </head>
 <body>
@@ -75,234 +75,176 @@
   <div class="container-fluid">
       <div class="row">
           <!-- 左側參數設定面板 -->
-          <div class="col-lg-4 col-md-12">
+          <div class="col-lg-4 col-md-12" id="calculator">
               <div class="parameter-panel">
                   <!-- 系統標題 -->
                   <div class="system-header">
                       <h2><i class="fas fa-tint text-primary"></i> 灌溉計算參數</h2>
-                      <p class="text-muted">請設定以下參數進行灌溉需求計算</p>
+                      <p class="text-muted">依計算日期的作物係數、耗水限值與當日雨量，判斷要不要灌溉</p>
                   </div>
 
                   <!-- 參數表單 -->
                   <form id="irrigationForm" class="parameter-form">
-                      <!-- 基本參數 -->
+                      <!-- 日期與植株 -->
                       <div class="parameter-section">
                           <h5 class="section-title">
                               <i class="fas fa-calendar-alt text-success"></i>
-                              基本參數
+                              日期與植株
                           </h5>
-                          
+
                           <div class="mb-3">
-                              <label for="currentDate" class="form-label">當前日期</label>
+                              <label for="currentDate" class="form-label">計算日期</label>
                               <input type="date" class="form-control" id="currentDate" required>
+                              <small id="stageHint" class="form-text text-muted">年積日與生育期依日期決定</small>
                           </div>
-                          
-                          <div class="mb-3">
-                              <label for="growthStage" class="form-label">生育期</label>
-                              <select class="form-select" id="growthStage" required>
-                                  <option value="flowerBud">花芽分化期</option>
-                                  <option value="flowering">開花期</option>
-                                  <option value="fruitSet">著果期</option>
-                                  <option value="fruitDev" selected>果實發育期</option>
-                                  <option value="fruitMature">果實成熟期</option>
-                                  <option value="dormant">休眠期</option>
-                              </select>
-                          </div>
-                          
+
                           <div class="mb-3">
                               <label for="plantAge" class="form-label">樹齡 (年)</label>
                               <input type="number" class="form-control" id="plantAge" min="1" max="50" value="8" required>
+                              <small class="form-text text-muted">未滿 10 年、10 年與 20 年以上，Kc 範圍不同</small>
                           </div>
 
-                          <!-- 新增：冠層覆蓋度 -->
                           <div class="mb-3">
-                              <label for="canopyCover" class="form-label">冠層覆蓋度 (%)</label>
-                              <input type="number" class="form-control" id="canopyCover" min="10" max="100" step="5" value="70" required>
-                              <small class="form-text text-muted">樹冠覆蓋土地面積的百分比</small>
+                              <label for="plantDensity" class="form-label">種植密度 (株/公頃)</label>
+                              <input type="number" class="form-control" id="plantDensity" min="100" max="2000" step="10" value="400" required>
+                              <small class="form-text text-muted">把灌溉深度換算成每株公升</small>
                           </div>
-                      </div>
 
-                      <!-- 地理位置參數 -->
-                      <div class="parameter-section">
-                          <h5 class="section-title">
-                              <i class="fas fa-map-marker-alt text-info"></i>
-                              地理位置參數
-                          </h5>
-                          
-                          <div class="mb-3">
-                              <label for="latitude" class="form-label">緯度 (°)</label>
-                              <input type="number" class="form-control" id="latitude" step="0.0001" min="20" max="26" value="" placeholder="24.5593" required>
-                              <small class="form-text text-muted">
-                                  <i class="fas fa-info-circle text-primary"></i> 
-                                  點擊「自動獲取當前位置氣象資料」按鈕後自動更新
-                             </small>
-                         </div>
-    
-                         <div class="mb-3">
-                             <label for="longitude" class="form-label">經度 (°)</label>
-                             <input type="number" class="form-control" id="longitude" step="0.0001" min="118" max="122" value="" placeholder="120.8214" required>
-                             <small class="form-text text-muted">
-                                 <i class="fas fa-info-circle text-primary"></i> 
-                                 點擊「自動獲取當前位置氣象資料」按鈕後自動更新
-                             </small>
-                         </div>
-                          
-                          <div class="mb-3">
-                              <label for="elevation" class="form-label">海拔高度 (m)</label>
-                              <input type="number" class="form-control" id="elevation" min="0" max="4000" step="1" value="85" required>
-                              <small class="form-text text-muted">影響氣壓和溫度計算</small>
+                          <div class="mb-3" id="densityLevelGroup">
+                              <label for="densityLevel" class="form-label">種植密度等級</label>
+                              <select class="form-select" id="densityLevel">
+                                  <option value="low" selected>較小（Kc 0.6–0.8）</option>
+                                  <option value="high">較大（Kc 0.4–0.75）</option>
+                              </select>
+                              <small class="form-text text-muted">只在樹齡未滿 10 年時調整 Kc</small>
                           </div>
                       </div>
 
-                      <!-- 氣象參數 -->
+                      <!-- 土壤與耗水限值 -->
                       <div class="parameter-section">
                           <h5 class="section-title">
-                              <i class="fas fa-cloud-sun text-warning"></i>
-                              氣象參數
+                              <i class="fas fa-mountain text-success"></i>
+                              土壤與耗水限值
                           </h5>
 
-                          <!-- 自動定位按鈕和資料來源顯示 -->
+                          <div class="mb-3">
+                              <label for="soilType" class="form-label">土壤質地</label>
+                              <select class="form-select" id="soilType" required>
+                                  <option value="sand">砂土（0.47 mm/cm）</option>
+                                  <option value="sandyLoam">砂壤土（1.28 mm/cm）</option>
+                                  <option value="loam" selected>壤土（1.92 mm/cm）</option>
+                                  <option value="siltLoam">坋壤土（2.23 mm/cm）</option>
+                                  <option value="clayLoam">黏壤土（2.33 mm/cm）</option>
+                                  <option value="siltClay">坋黏土（2.30 mm/cm）</option>
+                                  <option value="clay">黏土（2.30 mm/cm）</option>
+                              </select>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="soilDepth" class="form-label">根層深度 (cm)</label>
+                              <input type="number" class="form-control" id="soilDepth" min="20" max="200" step="1" value="60" required>
+                              <small id="fieldCapacityHint" class="form-text text-muted">根層田間容水量 Fc = 質地係數 × 根深</small>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="managementGoal" class="form-label">管理目標</label>
+                              <select class="form-select" id="managementGoal">
+                                  <option value="general" selected>一般管理（c=0.35，d=0.45）</option>
+                                  <option value="shallow">淺層土（c=0.35，d=0.40）</option>
+                                  <option value="young">幼樹（c=0.35，d=0.45）</option>
+                                  <option value="hillside">山坡地水源不足（c=0.40，d=0.57）</option>
+                                  <option value="custom">自訂</option>
+                              </select>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="cValue" class="form-label">著果期係數 c</label>
+                              <input type="number" class="form-control" id="cValue" min="0.20" max="0.80" step="0.01" value="0.35" required>
+                              <small id="cValueHint" class="form-text text-muted">著果及果實發育期使用</small>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="dValue" class="form-label">其餘時期係數 d</label>
+                              <input type="number" class="form-control" id="dValue" min="0.20" max="0.80" step="0.01" value="0.45" required>
+                              <small id="dValueHint" class="form-text text-muted">花芽分化、春梢與轉色採收期使用</small>
+                          </div>
+
+                          <div class="form-check mb-2">
+                              <input class="form-check-input" type="checkbox" id="useDefaultDeficit" checked>
+                              <label class="form-check-label" for="useDefaultDeficit">初始耗水量使用預設 Fc×d</label>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="initialDeficit" class="form-label">初始耗水量 D (mm)</label>
+                              <input type="number" class="form-control" id="initialDeficit" min="0" max="400" step="0.1" value="0" required>
+                              <small class="form-text text-muted">計算日前一日的土壤水分虧缺。從年初起算時預設為 Fc×d</small>
+                          </div>
+                      </div>
+
+                      <!-- 降雨 -->
+                      <div class="parameter-section">
+                          <h5 class="section-title">
+                              <i class="fas fa-cloud-rain text-info"></i>
+                              當日雨量
+                          </h5>
+
                           <div class="mb-3">
                               <button type="button" class="btn btn-primary" id="autoLocateBtn">
                                   <i class="fas fa-location-arrow me-2"></i>
-                                  自動獲取當前位置氣象資料
+                                  自動獲取當前位置雨量
                               </button>
-                              <small id="dataSource" class="form-text text-muted d-block mt-2">資料來源：農業部自動氣象站</small>
+                              <small id="dataSource" class="form-text text-muted d-block mt-2">參考蒸發散量依年積日公式計算。定位只用來填入雨量。</small>
                           </div>
-                          
-                          <!-- 位置資訊顯示 -->
+
                           <div id="location-data"></div>
-                          
-                          <!-- 氣象參數顯示區域 -->
                           <div id="weather-parameters"></div>
-              
-                          <!-- 天氣描述 -->
-                          <div class="mb-3">
-                              <p id="weatherDescription" class="alert alert-info" style="display: none;"></p>
-                          </div>
 
-                          <!-- 氣溫輸入框 -->
                           <div class="mb-3">
-                              <label for="temperature" class="form-label">氣溫 (°C)</label>
-                              <input type="number" class="form-control" id="temperature" step="0.1" min="-10" max="50" value="25" required>
-                              <small class="form-text text-muted">自動獲取的即時氣溫數據</small>
-                          </div>
-              
-                          <!-- 相對濕度輸入框 -->
-                          <div class="mb-3">
-                              <label for="humidity" class="form-label">相對濕度 (%)</label>
-                              <input type="number" class="form-control" id="humidity" step="1" min="0" max="100" value="70" required>
-                              <small class="form-text text-muted">自動獲取的相對濕度數據</small>
-                          </div>
-              
-                          <!-- 風速輸入框 -->
-                          <div class="mb-3">
-                              <label for="windSpeed" class="form-label">風速 (m/s)</label>
-                              <input type="number" class="form-control" id="windSpeed" step="0.1" min="0" max="30" value="2.0" required>
-                              <small class="form-text text-muted">自動獲取的風速數據</small>
-                          </div>
-              
-                          <!-- 氣壓輸入框 -->
-                          <div class="mb-3">
-                              <label for="pressure" class="form-label">氣壓 (hPa)</label>
-                              <input type="number" class="form-control" id="pressure" step="0.1" min="900" max="1100" value="1013.2" required>
-                              <small class="form-text text-muted">自動獲取的氣壓數據</small>
-                          </div>
-              
-                          <!-- 降雨量輸入框 -->
-                          <div class="mb-3">
-                              <label for="rainfall" class="form-label">24小時降雨量 (mm)</label>
+                              <label for="rainfall" class="form-label">當日雨量 (mm)</label>
                               <input type="number" class="form-control" id="rainfall" step="0.1" min="0" max="500" value="0" required>
-                              <small class="form-text text-muted">自動獲取的降雨量數據</small>
-                          </div>
-
-                          <!-- 新增：太陽輻射 -->
-                          <div class="mb-3">
-                              <label for="solarRadiation" class="form-label">太陽輻射 (MJ/m²/day)</label>
-                              <input type="number" class="form-control" id="solarRadiation" step="0.1" min="0" max="35" value="20" required>
-                              <small class="form-text text-muted">日太陽輻射總量</small>
+                              <small class="form-text text-muted">小於或等於 3 mm 不計；超過的部分還不能大於土壤可吸納量</small>
                           </div>
                       </div>
 
-                      <!-- 土壤參數 -->
-                      <div class="parameter-section">
-                          <h5 class="section-title">
-                              <i class="fas fa-mountain text-brown"></i>
-                              土壤參數
-                          </h5>
-                          
-                          <div class="mb-3">
-                              <label for="soilType" class="form-label">土壤類型</label>
-                              <select class="form-select" id="soilType" required>
-                                  <option value="sandy">砂質土</option>
-                                  <option value="loamy" selected>壤土</option>
-                                  <option value="clay">黏質土</option>
-                                  <option value="organicRich">有機質豐富土壤</option>
-                              </select>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="soilDepth" class="form-label">土壤深度 (cm)</label>
-                              <input type="number" class="form-control" id="soilDepth" min="20" max="200" step="5" value="60" required>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="currentMoisture" class="form-label">目前土壤含水量 (%)</label>
-                              <input type="number" class="form-control" id="currentMoisture" min="0" max="100" step="1" value="60" required>
-                          </div>
-
-                          <!-- 新增：有機質含量 -->
-                          <div class="mb-3">
-                              <label for="organicMatter" class="form-label">有機質含量 (%)</label>
-                              <input type="number" class="form-control" id="organicMatter" min="0" max="10" step="0.1" value="2.5" required>
-                              <small class="form-text text-muted">影響土壤保水能力</small>
-                          </div>
-                      </div>
-
-                      <!-- 管理參數 -->
+                      <!-- 灌溉系統 -->
                       <div class="parameter-section">
                           <h5 class="section-title">
                               <i class="fas fa-cogs text-info"></i>
-                              管理參數
+                              灌溉系統
                           </h5>
-                          
+
                           <div class="mb-3">
                               <label for="irrigationSystem" class="form-label">灌溉系統</label>
                               <select class="form-select" id="irrigationSystem" required>
-                                  <option value="drip" selected>滴灌系統</option>
-                                  <option value="sprinkler">噴灌系統</option>
-                                  <option value="microSprinkler">微噴系統</option>
-                                  <option value="furrow">溝灌系統</option>
+                                  <option value="drip" selected>滴灌（效率 90–95%）</option>
+                                  <option value="microSprinkler">微噴灌（效率 85–90%）</option>
+                                  <option value="sprinkler">噴灌（效率 80–85%）</option>
                               </select>
                           </div>
 
-                          <!-- 新增：系統效率 -->
                           <div class="mb-3">
-                              <label for="systemEfficiency" class="form-label">系統效率 (%)</label>
-                              <input type="number" class="form-control" id="systemEfficiency" min="50" max="98" step="1" value="90" required>
-                              <small class="form-text text-muted">灌溉系統的水分利用效率</small>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="plantDensity" class="form-label">種植密度 (株/公頃)</label>
-                              <input type="number" class="form-control" id="plantDensity" min="100" max="1000" step="10" value="400" required>
+                              <label for="systemEfficiency" class="form-label">灌溉效率 (%)</label>
+                              <input type="number" class="form-control" id="systemEfficiency" min="90" max="95" step="0.5" value="92.5" required>
+                              <small class="form-text text-muted">到達土壤的水量會先乘上這個效率</small>
                           </div>
 
-                          <!-- 新增：灌溉間隔 -->
                           <div class="mb-3">
-                              <label for="irrigationInterval" class="form-label">灌溉間隔 (天)</label>
-                              <input type="number" class="form-control" id="irrigationInterval" min="1" max="14" step="1" value="3" required>
-                              <small class="form-text text-muted">兩次灌溉之間的天數</small>
-                          </div>
-                          
-                          <div class="mb-3">
-                              <label for="mulching" class="form-label">覆蓋處理</label>
-                              <select class="form-select" id="mulching" required>
-                                  <option value="none">無覆蓋</option>
-                                  <option value="organic" selected>有機覆蓋</option>
-                                  <option value="plastic">塑膠布覆蓋</option>
-                                  <option value="gravel">礫石覆蓋</option>
+                              <label for="emitterPosition" class="form-label">噴頭位置</label>
+                              <select class="form-select" id="emitterPosition">
+                                  <option value="below" selected>樹冠下層（截留 0.5–1 mm）</option>
+                                  <option value="above">樹冠上層（截留 2 mm）</option>
                               </select>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="canopyInterception" class="form-label">植物截留量 INi (mm)</label>
+                              <input type="number" class="form-control" id="canopyInterception" min="0.5" max="1" step="0.1" value="0.75" required>
+                          </div>
+
+                          <div class="mb-3">
+                              <label for="irrigationDepth" class="form-label">單次灌溉深度 uI (mm)</label>
+                              <input type="number" class="form-control" id="irrigationDepth" min="1" max="40" step="0.5" value="10" required>
+                              <small class="form-text text-muted">預設 10 mm。灌溉量 I = uI × 效率 − INi</small>
                           </div>
                       </div>
 
@@ -333,33 +275,40 @@
               <div class="results-panel" id="results">
                   <!-- 主要結果卡片 -->
                   <div class="row mb-4">
-                      <div class="col-md-4">
-                          <div class="result-card text-center">
+                      <div class="col-md-4 d-flex">
+                          <div class="result-card text-center w-100">
                               <div class="result-icon">
                                   <i class="fas fa-tint text-primary"></i>
                               </div>
-                              <h3 class="result-value" id="irrigationAmount">-- L/株</h3>
+                              <h3 class="result-value" id="irrigationAmount">-- mm</h3>
                               <p class="result-label">建議灌溉量</p>
+                              <small id="irrigationLiters" class="text-muted">--</small>
                           </div>
                       </div>
-                      <div class="col-md-4">
-                          <div class="result-card text-center">
+                      <div class="col-md-4 d-flex">
+                          <div class="result-card text-center w-100">
                               <div class="result-icon">
-                                  <i class="fas fa-clock text-success"></i>
+                                  <i class="fas fa-water text-success"></i>
                               </div>
-                              <h3 class="result-value" id="irrigationTime">-- 分鐘</h3>
-                              <p class="result-label">灌溉時間</p>
+                              <h3 class="result-value" id="soilDeficit">-- mm</h3>
+                              <p class="result-label">當日耗水量</p>
+                              <small id="deficitNote" class="text-muted">灌溉後</small>
                           </div>
                       </div>
-                      <div class="col-md-4">
-                          <div class="result-card text-center">
+                      <div class="col-md-4 d-flex">
+                          <div class="result-card text-center w-100">
                               <div class="result-icon">
                                   <i class="fas fa-calendar-check text-warning"></i>
                               </div>
-                              <h3 class="result-value" id="nextIrrigation">-- 天後</h3>
-                              <p class="result-label">下次灌溉</p>
+                              <h3 class="result-value" id="ramLimit">-- mm</h3>
+                              <p class="result-label">耗水限值 RAM</p>
+                              <small id="nextIrrigation" class="text-muted">--</small>
                           </div>
                       </div>
+                  </div>
+
+                  <div id="dailySummary" class="alert alert-light border mb-4">
+                      設定參數後按「開始計算」，這裡會顯示年積日、Kc、ETo 與有效雨量。
                   </div>
 
                   <!-- 詳細分析標籤頁 -->
@@ -431,7 +380,7 @@
           <div class="row">
               <div class="col-md-6">
                   <h5><i class="fas fa-seedling me-2"></i>柑橘園智能灌溉系統</h5>
-                  <p class="mb-2">基於 FAO-56 標準的專業灌溉計算工具</p>
+                  <p class="mb-2">依逐日 Kc、耗水限值與土壤水分收支計算灌溉深度</p>
                   <p class="small text-muted">版本 1.0.0 | 更新日期: 2024-12-19</p>
               </div>
               <div class="col-md-6">
@@ -478,9 +427,8 @@
           
           // 設定當前日期
           const currentDateInput = document.getElementById('currentDate');
-          if (currentDateInput) {
-              const today = new Date().toISOString().split('T')[0];
-              currentDateInput.value = today;
+          if (currentDateInput && window.irrigationFormula) {
+              currentDateInput.value = window.irrigationFormula.localDateISO();
           }
           
           // 初始化表單
@@ -488,36 +436,8 @@
               initializeForm();
           }
           
-          // 載入氣候資料
-          loadClimateData();
-          
           console.log('系統初始化完成');
       });
-
-      // 載入氣候資料
-      async function loadClimateData() {
-          try {
-              const response = await fetch('data/climate-data.json');
-              const climateData = await response.json();
-              window.climateData = climateData;
-              console.log('氣候資料載入成功');
-          } catch (error) {
-              console.warn('氣候資料載入失敗:', error);
-              // 使用預設值繼續運行
-          }
-      }
-
-      // 顯示錯誤訊息
-      function showErrorMessage(message) {
-          console.error('錯誤:', message);
-          // 可以在這裡添加 UI 錯誤顯示邏輯
-      }
-
-      // 顯示成功訊息
-      function showSuccessMessage(message) {
-          console.log('成功:', message);
-          // 可以在這裡添加 UI 成功顯示邏輯
-      }
 
       // 錯誤處理
       window.addEventListener('error', function(event) {
