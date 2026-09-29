@@ -2,12 +2,18 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0c2f14">
   <title>柑橘園智能灌溉計算系統 | 苗栗區農業改良場</title>
-  
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='34' r='22' fill='%23f0a202'/%3E%3Cpath d='M32 8c2 8 8 12 14 12-6 2-10 8-10 14' fill='none' stroke='%231b5e20' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
   <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
   <!-- Font Awesome -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
   
@@ -35,13 +41,16 @@
   </div>
 
   <!-- 導航列 -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+  <nav class="navbar navbar-expand-lg navbar-dark site-nav sticky-top">
       <div class="container">
           <a class="navbar-brand" href="#" onclick="location.reload()">
-              <i class="fas fa-seedling me-2"></i>
-              柑橘園智能灌溉系統
+              <span class="brand-mark" aria-hidden="true"><i class="fas fa-seedling"></i></span>
+              <span class="brand-text">
+                  柑橘園智能灌溉
+                  <small>苗栗區農業改良場</small>
+              </span>
           </a>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="開啟選單">
               <span class="navbar-toggler-icon"></span>
           </button>
           <div class="collapse navbar-collapse" id="navbarNav">
@@ -76,11 +85,26 @@
       </div>
   </nav>
 
+  <header class="page-hero">
+      <div class="page-hero-inner">
+          <div>
+              <p class="eyebrow">苗栗區農業改良場</p>
+              <h1>今天要灌多少，算完就知道</h1>
+              <p class="hero-lead">依計算日期的作物係數、耗水限值與當日雨量，判斷要不要灌溉，以及每株大約幾公升。</p>
+          </div>
+          <ul class="hero-points">
+              <li>電腦與手機都能用</li>
+              <li>可定位帶入雨量</li>
+              <li>另有農民簡易版</li>
+          </ul>
+      </div>
+  </header>
+
   <!-- 主要內容 -->
-  <div class="container-fluid">
-      <div class="row">
+  <main class="app-shell">
+      <div class="workspace">
           <!-- 左側參數設定面板 -->
-          <div class="col-lg-4 col-md-12" id="calculator">
+          <div id="calculator">
               <div class="parameter-panel">
                   <!-- 系統標題 -->
                   <div class="system-header">
@@ -252,63 +276,56 @@
                               <small class="form-text text-muted">預設 10 mm。灌溉量 I = uI × 效率 − INi</small>
                           </div>
                       </div>
+                  </form>
 
-                      <!-- 操作按鈕 -->
-                      <div class="action-buttons">
-                          <button type="button" class="btn btn-primary btn-lg w-100 mb-2" onclick="calculateIrrigation()">
-                              <i class="fas fa-play me-2"></i>開始計算
-                          </button>
-                          <div class="row">
-                              <div class="col-6">
-                                  <button type="button" class="btn btn-outline-secondary w-100" onclick="resetForm()">
-                                      <i class="fas fa-undo me-1"></i>重置
-                                  </button>
-                              </div>
-                              <div class="col-6">
-                                  <button type="button" class="btn btn-outline-success w-100" onclick="saveParameters()">
-                                      <i class="fas fa-save me-1"></i>儲存
-                                  </button>
-                              </div>
+                  <div class="action-buttons">
+                      <button type="button" class="btn btn-primary btn-lg w-100 mb-2" onclick="calculateIrrigation()">
+                          <i class="fas fa-play me-2"></i>開始計算
+                      </button>
+                      <div class="row g-2">
+                          <div class="col-6">
+                              <button type="button" class="btn btn-outline-secondary w-100" onclick="resetForm()">
+                                  <i class="fas fa-undo me-1"></i>重置
+                              </button>
+                          </div>
+                          <div class="col-6">
+                              <button type="button" class="btn btn-outline-success w-100" onclick="saveParameters()">
+                                  <i class="fas fa-save me-1"></i>儲存
+                              </button>
                           </div>
                       </div>
-                  </form>
+                  </div>
               </div>
           </div>
 
           <!-- 右側結果顯示面板 -->
-          <div class="col-lg-8 col-md-12">
+          <div>
               <div class="results-panel" id="results">
                   <!-- 主要結果卡片 -->
-                  <div class="row mb-4">
-                      <div class="col-md-4 d-flex">
-                          <div class="result-card text-center w-100">
-                              <div class="result-icon">
-                                  <i class="fas fa-tint text-primary"></i>
-                              </div>
-                              <h3 class="result-value" id="irrigationAmount">-- mm</h3>
-                              <p class="result-label">建議灌溉量</p>
-                              <small id="irrigationLiters" class="text-muted">--</small>
+                  <div class="result-grid">
+                      <div class="result-card result-card-water">
+                          <div class="result-icon">
+                              <i class="fas fa-tint text-warning"></i>
                           </div>
+                          <h3 class="result-value" id="irrigationAmount">-- mm</h3>
+                          <p class="result-label">建議灌溉量</p>
+                          <small id="irrigationLiters" class="text-muted">--</small>
                       </div>
-                      <div class="col-md-4 d-flex">
-                          <div class="result-card text-center w-100">
-                              <div class="result-icon">
-                                  <i class="fas fa-water text-success"></i>
-                              </div>
-                              <h3 class="result-value" id="soilDeficit">-- mm</h3>
-                              <p class="result-label">當日耗水量</p>
-                              <small id="deficitNote" class="text-muted">灌溉後</small>
+                      <div class="result-card result-card-soil">
+                          <div class="result-icon">
+                              <i class="fas fa-water text-success"></i>
                           </div>
+                          <h3 class="result-value" id="soilDeficit">-- mm</h3>
+                          <p class="result-label">當日耗水量</p>
+                          <small id="deficitNote" class="text-muted">灌溉後</small>
                       </div>
-                      <div class="col-md-4 d-flex">
-                          <div class="result-card text-center w-100">
-                              <div class="result-icon">
-                                  <i class="fas fa-calendar-check text-warning"></i>
-                              </div>
-                              <h3 class="result-value" id="ramLimit">-- mm</h3>
-                              <p class="result-label">耗水限值 RAM</p>
-                              <small id="nextIrrigation" class="text-muted">--</small>
+                      <div class="result-card result-card-limit">
+                          <div class="result-icon">
+                              <i class="fas fa-calendar-check text-primary"></i>
                           </div>
+                          <h3 class="result-value" id="ramLimit">-- mm</h3>
+                          <p class="result-label">耗水限值 RAM</p>
+                          <small id="nextIrrigation" class="text-muted">--</small>
                       </div>
                   </div>
 
@@ -377,23 +394,29 @@
               </div>
           </div>
       </div>
+  </main>
+
+  <div class="mobile-calc-bar">
+      <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">重置</button>
+      <button type="button" class="btn btn-primary" onclick="calculateIrrigation()">開始計算</button>
+      <button type="button" class="btn btn-outline-success" onclick="saveParameters()">儲存</button>
   </div>
 
   <!-- 頁尾 -->
-  <footer class="bg-dark text-light py-4 mt-5">
+  <footer class="site-footer">
       <div class="container">
           <div class="row">
               <div class="col-md-6">
                   <h5><i class="fas fa-seedling me-2"></i>柑橘園智能灌溉系統</h5>
                   <p class="mb-2">依逐日 Kc、耗水限值與土壤水分收支計算灌溉深度</p>
-                  <p class="small text-muted">版本 1.0.0 | 更新日期: 2024-12-19</p>
+                  <p class="small mb-0" style="opacity:.7">版本 1.0.0 | 更新日期: 2024-12-19</p>
               </div>
-              <div class="col-md-6">
+              <div class="col-md-6 mt-3 mt-md-0">
                   <h6>開發資訊</h6>
                   <p class="mb-1"><strong>開發者:</strong> 林鈺荏</p>
                   <p class="mb-1"><strong>機構:</strong> 苗栗區農業改良場</p>
                   <p class="mb-1"><strong>職位:</strong> 助理研究員</p>
-                  <p class="small text-muted">專長: 作物土壤肥料管理研究</p>
+                  <p class="small mb-0" style="opacity:.7">專長: 作物土壤肥料管理研究</p>
               </div>
           </div>
           <hr class="my-3">
@@ -401,13 +424,15 @@
               <div class="col-md-6">
                   <p class="mb-0">&copy; 2024 苗栗區農業改良場. 保留所有權利.</p>
               </div>
-              <div class="col-md-6 text-md-end">
-                  <a href="docs/README.md" class="text-light me-3" target="_blank">
-                      <i class="fas fa-book"></i> 使用說明
-                  </a>
-                  <a href="docs/calculation-guide.md" class="text-light" target="_blank">
-                      <i class="fas fa-calculator"></i> 計算指南
-                  </a>
+              <div class="col-md-6">
+                  <div class="footer-links">
+                      <a href="docs/README.md" target="_blank">
+                          <i class="fas fa-book"></i> 使用說明
+                      </a>
+                      <a href="docs/calculation-guide.md" target="_blank">
+                          <i class="fas fa-calculator"></i> 計算指南
+                      </a>
+                  </div>
               </div>
           </div>
       </div>

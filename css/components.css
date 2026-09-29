@@ -238,16 +238,16 @@
     border-bottom: 3px solid #4caf50;
 }
 
-.tab-content {
+.tabs-container .tab-content {
     padding: 1.5rem;
     min-height: 200px;
 }
 
-.tab-pane {
+.tabs-container .tab-pane {
     display: none;
 }
 
-.tab-pane.active {
+.tabs-container .tab-pane.active {
     display: block;
     animation: fadeInUp 0.3s ease;
 }

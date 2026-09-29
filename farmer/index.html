@@ -2,9 +2,14 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0c2f14">
   <title>今天要不要灌水 | 柑橘園簡易版</title>
   <meta name="description" content="給柑橘農使用的簡易灌溉建議。選果園狀況和今天雨量，直接看每株要灌幾公升。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='34' r='22' fill='%23f0a202'/%3E%3Cpath d='M32 8c2 8 8 12 14 12-6 2-10 8-10 14' fill='none' stroke='%231b5e20' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="farmer.css">
 </head>
 <body>
@@ -20,7 +25,7 @@
 
     <form id="farmerForm">
       <section class="card">
-        <h2>1. 今天</h2>
+        <h2><span class="step-no">1</span>今天</h2>
         <div class="field">
           <label for="currentDate">日期</label>
           <input type="date" id="currentDate" required>
@@ -41,7 +46,7 @@
       </section>
 
       <section class="card">
-        <h2>2. 果樹</h2>
+        <h2><span class="step-no">2</span>果樹</h2>
         <div class="field">
           <label for="treeAge">樹大約幾年</label>
           <div class="stepper">
@@ -74,7 +79,7 @@
       </section>
 
       <section class="card">
-        <h2>3. 土和果園</h2>
+        <h2><span class="step-no">3</span>土和果園</h2>
         <div class="field">
           <p class="choice-label" id="soilLabel">土是哪一種</p>
           <div class="choices" role="radiogroup" aria-labelledby="soilLabel">
@@ -121,7 +126,7 @@
       </section>
 
       <section class="card">
-        <h2>4. 怎麼灌</h2>
+        <h2><span class="step-no">4</span>怎麼灌</h2>
         <div class="field">
           <p class="choice-label" id="systemLabel">園裡用哪一種</p>
           <div class="choices" role="radiogroup" aria-labelledby="systemLabel">
@@ -135,12 +140,18 @@
       <button class="go" type="submit">看今天要不要灌</button>
     </form>
 
-    <section id="result" class="result" hidden aria-live="polite"></section>
-    <details class="details" id="detailBox" hidden>
-      <summary>為什麼是這個結果</summary>
-      <ul id="detailList"></ul>
-    </details>
-    <button type="button" class="again" id="againButton">改條件再算一次</button>
+    <aside class="outcome">
+      <div class="outcome-placeholder">
+        <strong>結果會出現在這裡</strong>
+        選好果園和今天的雨，按「看今天要不要灌」。
+      </div>
+      <section id="result" class="result" hidden aria-live="polite"></section>
+      <details class="details" id="detailBox" hidden>
+        <summary>為什麼是這個結果</summary>
+        <ul id="detailList"></ul>
+      </details>
+      <button type="button" class="again" id="againButton">改條件再算一次</button>
+    </aside>
   </div>
 
   <script src="../js/parameters.js"></script>
