@@ -128,6 +128,15 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
         return Number(value).toFixed(digits);
     }
 
+    // 台灣地政：1 分地 = 293.4 坪，1 坪 = 1/0.3025 平方公尺。
+    const FEN_SQUARE_METERS = 293.4 / 0.3025;
+
+    function fenWaterTotals(litersPerPlant, plantDensity) {
+        const treesPerFen = plantDensity * (FEN_SQUARE_METERS / 10000);
+        const tonsPerFen = litersPerPlant * treesPerFen / 1000;
+        return { treesPerFen, tonsPerFen };
+    }
+
     class CitrusIrrigationCalculator {
         constructor() {
             this.calculationResults = {};
@@ -196,7 +205,7 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 );
                 this.addCalculationStep(
                     '灌溉後水分平衡',
-                    `D = ${formatNumber(day.deficit, 1)} mm。依 ${formatNumber(context.plantDensity, 0)} 株/公頃換算約 ${formatNumber(day.litersPerPlant, 1)} L/株。`,
+                    `D = ${formatNumber(day.deficit, 1)} mm。依 ${formatNumber(context.plantDensity, 0)} 株/公頃換算約 ${formatNumber(day.litersPerPlant, 1)} L/株，一分地約 ${formatNumber(day.treesPerFen, 0)} 株、${formatNumber(day.tonsPerFen, 1)} 噸。`,
                     'D[x] = D[x-1] + ETc[x] − Pe − I'
                 );
             } else {
@@ -222,6 +231,8 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 irrigationDepth: day.irrigation,
                 irrigationAmount: day.irrigation,
                 irrigationLiters: day.litersPerPlant,
+                treesPerFen: day.treesPerFen,
+                tonsPerFen: day.tonsPerFen,
                 soilDeficit: day.deficit,
                 deficitBefore: day.deficitBefore,
                 ram: day.ram,
@@ -342,6 +353,7 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 deficit = previousDeficit + etc - pe - irrigation;
             }
             const litersPerPlant = irrigation * (10000 / context.plantDensity);
+            const fenTotals = fenWaterTotals(litersPerPlant, context.plantDensity);
             return {
                 baseKc,
                 kc,
@@ -360,6 +372,8 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 irrigation,
                 irrigated,
                 litersPerPlant,
+                treesPerFen: fenTotals.treesPerFen,
+                tonsPerFen: fenTotals.tonsPerFen,
                 kcStage: stageName(x, KC_STAGES),
                 ramStage: stageName(x, RAM_STAGES),
                 soilName: SOIL_TYPE_PARAMETERS[context.soilType].name
@@ -386,7 +400,7 @@ if (typeof window.CITRUS_CALCULATOR_LOADED === 'undefined') {
                 recommendations.push({
                     type: 'warning',
                     title: '建議今日灌溉',
-                    message: `耗水量 ${formatNumber(day.deficitBefore, 1)} mm 已超過耗水限值 ${formatNumber(day.ram, 1)} mm。請灌 ${formatNumber(day.irrigation, 1)} mm（約 ${formatNumber(day.litersPerPlant, 1)} L/株）。`,
+                    message: `耗水量 ${formatNumber(day.deficitBefore, 1)} mm 已超過耗水限值 ${formatNumber(day.ram, 1)} mm。請灌 ${formatNumber(day.irrigation, 1)} mm（約 ${formatNumber(day.litersPerPlant, 1)} L/株，一分地約 ${formatNumber(day.tonsPerFen, 1)} 噸）。`,
                     icon: 'fas fa-tint'
                 });
                 if (day.deficit > day.ram) {
